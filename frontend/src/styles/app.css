@@ -1,0 +1,101 @@
+/*
+ * Tailwind is used for layout (flex, grid, spacing, position). Visual values come only from the
+ * design tokens below. Source of truth: docs/design.md. Add tokens there first.
+ * Default Tailwind colors are removed, so only token colors exist as utilities (bg-primary, text-ink-soft).
+ */
+@import "tailwindcss";
+@import "./fonts.css";
+@import "./base.css" layer(base);
+@import "../ui/ui.css" layer(components);
+
+@theme static {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /* font */
+  --font-base: "NanumSquareRound", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-hand: "Gaegu", "NanumSquareRound", cursive;
+  --default-font-family: var(--font-base);
+
+  /* type scale: size / line height / letter spacing / weight */
+  --text-display: 32px;  --text-display--line-height: 40px;  --text-display--letter-spacing: -0.02em;  --text-display--font-weight: 800;
+  --text-title: 24px;    --text-title--line-height: 32px;    --text-title--letter-spacing: -0.02em;    --text-title--font-weight: 800;
+  --text-heading: 18px;  --text-heading--line-height: 26px;  --text-heading--letter-spacing: -0.015em; --text-heading--font-weight: 700;
+  --text-body: 16px;     --text-body--line-height: 26px;     --text-body--letter-spacing: -0.01em;     --text-body--font-weight: 400;
+  --text-label: 15px;    --text-label--line-height: 20px;    --text-label--letter-spacing: -0.01em;    --text-label--font-weight: 700;
+  --text-small: 14px;    --text-small--line-height: 22px;    --text-small--letter-spacing: -0.005em;   --text-small--font-weight: 400;
+  --text-caption: 12px;  --text-caption--line-height: 18px;  --text-caption--letter-spacing: 0;        --text-caption--font-weight: 400;
+  --text-hand: 20px;     --text-hand--line-height: 30px;     --text-hand--letter-spacing: 0;           --text-hand--font-weight: 400;
+
+  /* color: base */
+  --color-bg: #FFF9F0;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #F4ECE0;
+  --color-border: #EADFD2;
+  --color-border-strong: #D9CBBB;
+  --color-ink: #3D3530;
+  --color-ink-soft: #7A6E66;
+  --color-ink-faint: #9A8D82;
+  --color-transparent: transparent;
+
+  /* color: roles (default / hover / active / subtle) */
+  --color-primary: #66BDE6;
+  --color-primary-hover: #57B2DD;
+  --color-primary-active: #4EA9D5;
+  --color-primary-subtle: #E3F3FB;
+  --color-accent: #F3C258;
+  --color-accent-hover: #E6B040;
+  --color-accent-active: #DBA430;
+  --color-accent-subtle: #FDF3D8;
+  --color-success: #8CC48C;
+  --color-success-hover: #7DB87D;
+  --color-success-active: #6FAD6F;
+  --color-success-subtle: #E6F3E4;
+  --color-danger: #B84E4E;
+  --color-danger-hover: #A94444;
+  --color-danger-active: #9E3E3E;
+  --color-danger-subtle: #FBEFEC;
+  --color-neutral: #647A87;
+  --color-neutral-hover: #586D7A;
+  --color-neutral-active: #4D616D;
+  --color-neutral-subtle: #EDF1F3;
+  --color-link: #276F94;
+  --color-link-active: #1F5B7A;
+  --color-overlay: rgb(61 53 48 / 0.35);
+
+  /* radius */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px rgb(94 72 52 / 0.08), 0 2px 6px rgb(94 72 52 / 0.06);
+  --shadow-md: 0 4px 14px rgb(94 72 52 / 0.10);
+  --shadow-lg: 0 12px 32px rgb(94 72 52 / 0.16);
+
+  /* motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* spacing: Tailwind's 4px step matches design.md (p-2 = 8px = space-2) */
+  --spacing: 4px;
+}
+
+/* Tokens that are not Tailwind theme namespaces */
+:root {
+  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 6px var(--color-primary);
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-base: 0ms; --duration-slow: 0ms; }
+}

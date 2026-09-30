@@ -1,0 +1,10 @@
+/* Type scale utilities (text-title, text-small ...) come from the @theme tokens in app.css. */
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font: 400 16px/26px var(--font-base);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}

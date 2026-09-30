@@ -1,0 +1,5 @@
+[
+  { "id": "bed", "name": "싱글 침대", "category": "large", "size": [2, 4], "glb": "/models/bed.glb" },
+  { "id": "computer_desk", "name": "컴퓨터 책상", "category": "large", "size": [3, 2], "glb": "/models/computer_desk.glb" },
+  { "id": "plant_pot", "name": "화분", "category": "prop", "size": [1, 1], "glb": "/models/plant_pot.glb" }
+]

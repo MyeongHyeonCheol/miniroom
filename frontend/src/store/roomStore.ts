@@ -1,0 +1,165 @@
+import { create } from 'zustand'
+import { lookupFurniture } from '../furniture/catalog'
+import { loadLayout, saveLayout, toLayoutJson, type Layout } from '../room/layoutJson'
+import { DEFAULT_LAYOUT, stressLayout } from '../room/layouts'
+import { canPlace, findFreeSpot, MAX_PIECES, type Placement, type Rotation } from '../room/placement'
+import type { FloorId, WallId } from '../room/surfaces'
+
+/** Piece being dragged: where it would land and whether that is allowed. */
+export type DragState = {
+  index: number
+  /** grab point offset from the anchor cell, in cells */
+  grabDx: number
+  grabDy: number
+  preview: Placement
+  valid: boolean
+}
+
+export type Notice = { id: number; text: string; tone: 'info' | 'error' }
+
+type RoomState = {
+  floor: FloorId
+  wall: WallId
+  shadows: boolean
+  placements: Placement[]
+  selected: number | null
+  drag: DragState | null
+  notice: Notice | null
+  /** JSON of the last saved (or loaded) layout, to tell whether there are unsaved changes */
+  savedJson: string | null
+  setFloor: (floor: FloorId) => void
+  setWall: (wall: WallId) => void
+  setShadows: (on: boolean) => void
+  setPlacements: (placements: Placement[]) => void
+  select: (index: number | null) => void
+  startDrag: (index: number, cellX: number, cellY: number) => void
+  moveDrag: (cellX: number, cellY: number) => void
+  endDrag: () => void
+  rotateSelected: () => void
+  removeSelected: () => void
+  addFurniture: (furnitureId: string) => void
+  notify: (text: string, tone?: Notice['tone']) => void
+  save: () => void
+}
+
+const params = new URLSearchParams(window.location.search)
+
+const DEFAULT: Layout = { floor: 'wood', wall: 'ivory', placements: DEFAULT_LAYOUT }
+
+/** ?stress=N (measurement) wins over the saved layout; otherwise saved, else the default room. */
+function initialLayout(): { layout: Layout; saved: boolean; dropped: number } {
+  const stress = Number(params.get('stress'))
+  if (stress > 0) return { layout: { ...DEFAULT, placements: stressLayout(Math.min(stress, MAX_PIECES)) }, saved: false, dropped: 0 }
+  const loaded = loadLayout(DEFAULT)
+  return loaded ? { ...loaded, saved: true } : { layout: DEFAULT, saved: false, dropped: 0 }
+}
+
+const initial = initialLayout()
+
+/** Canonical JSON of the current layout (used for saving and for the unsaved-changes check). */
+export const layoutJsonOf = (s: Pick<RoomState, 'floor' | 'wall' | 'placements'>) =>
+  JSON.stringify(toLayoutJson(s))
+
+const MESSAGES = {
+  overlap: '다른 가구와 겹쳐서 놓을 수 없어요',
+  outside: '방 밖으로 나가서 놓을 수 없어요',
+  full: `가구는 방에 ${MAX_PIECES}개까지 놓을 수 있어요`,
+  noSpace: '빈 자리가 없어요',
+  saveFailed: '저장하지 못했어요. 브라우저 저장소를 확인해 주세요',
+}
+
+let noticeId = 0
+
+export const useRoomStore = create<RoomState>((set, get) => ({
+  floor: initial.layout.floor,
+  wall: initial.layout.wall,
+  shadows: params.get('shadows') === '1',
+  placements: initial.layout.placements,
+  selected: null,
+  drag: null,
+  notice: initial.dropped > 0 ? { id: ++noticeId, text: `저장된 가구 중 ${initial.dropped}개를 놓을 수 없어서 뺐어요`, tone: 'error' } : null,
+  savedJson: initial.saved ? layoutJsonOf(initial.layout) : null,
+  setFloor: (floor) => set({ floor }),
+  setWall: (wall) => set({ wall }),
+  setShadows: (shadows) => set({ shadows }),
+  setPlacements: (placements) => set({ placements, selected: null, drag: null }),
+
+  select: (selected) => set({ selected }),
+
+  startDrag: (index, cellX, cellY) => {
+    const p = get().placements[index]
+    set({
+      selected: index,
+      drag: { index, grabDx: cellX - p.x, grabDy: cellY - p.y, preview: p, valid: true },
+    })
+  },
+
+  moveDrag: (cellX, cellY) => {
+    const { drag, placements } = get()
+    if (!drag) return
+    const preview = { ...drag.preview, x: cellX - drag.grabDx, y: cellY - drag.grabDy }
+    if (preview.x === drag.preview.x && preview.y === drag.preview.y) return
+    const valid = canPlace(placements, preview, lookupFurniture, drag.index).ok
+    set({ drag: { ...drag, preview, valid } })
+  },
+
+  endDrag: () => {
+    const { drag, placements, notify } = get()
+    if (!drag) return
+    const from = placements[drag.index]
+    if (from.x === drag.preview.x && from.y === drag.preview.y) return set({ drag: null }) // a click, not a move
+    const check = canPlace(placements, drag.preview, lookupFurniture, drag.index)
+    if (check.ok) {
+      const next = placements.slice()
+      next[drag.index] = drag.preview
+      set({ placements: next, drag: null })
+    } else {
+      set({ drag: null }) // snap back to the original cell
+      notify(MESSAGES[check.reason], 'error')
+    }
+  },
+
+  rotateSelected: () => {
+    const { selected, placements, drag, notify } = get()
+    if (selected === null || drag) return
+    const p = placements[selected]
+    const rotated = { ...p, rotation: ((p.rotation + 90) % 360) as Rotation }
+    const check = canPlace(placements, rotated, lookupFurniture, selected)
+    if (!check.ok) return notify(MESSAGES[check.reason], 'error')
+    const next = placements.slice()
+    next[selected] = rotated
+    set({ placements: next })
+  },
+
+  removeSelected: () => {
+    const { selected, placements, drag } = get()
+    if (selected === null || drag) return
+    set({ placements: placements.filter((_, i) => i !== selected), selected: null, drag: null })
+  },
+
+  addFurniture: (furnitureId) => {
+    const { placements, notify } = get()
+    if (placements.length >= MAX_PIECES) return notify(MESSAGES.full, 'error')
+    const spot = findFreeSpot(placements, furnitureId, lookupFurniture)
+    if (!spot) return notify(MESSAGES.noSpace, 'error')
+    set({ placements: [...placements, spot], selected: placements.length })
+  },
+
+  notify: (text, tone = 'info') => set({ notice: { id: ++noticeId, text, tone } }),
+
+  save: () => {
+    const { floor, wall, placements, notify } = get()
+    const bytes = saveLayout({ floor, wall, placements })
+    if (bytes === null) return notify(MESSAGES.saveFailed, 'error')
+    set({ savedJson: layoutJsonOf({ floor, wall, placements }) })
+    notify(`저장했어요 (${(bytes / 1024).toFixed(1)}KB)`)
+  },
+}))
+
+declare global {
+  interface Window {
+    __miniroomRoom?: () => RoomState
+  }
+}
+// Read-only handle for e2e tests
+window.__miniroomRoom = () => useRoomStore.getState()
