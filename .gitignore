@@ -1,0 +1,26 @@
+# Secrets (AGENTS.md: only .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.gradle/
+
+# Test and measurement output
+test-results/
+playwright-report/
+
+# Blender
+__pycache__/
+*.blend1
+*.blend@
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
