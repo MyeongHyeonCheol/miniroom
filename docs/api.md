@@ -51,10 +51,10 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | GET | `/api/me` | 예 | 내 정보 | 1단계 형태 구현됨, 바뀜 |
 | PATCH | `/api/me` | 예 | 첫 가입(닉네임 + 14세 + 약관), 이후 닉네임 변경 | |
 | DELETE | `/api/me` | 예 | 탈퇴 | |
-| GET | `/api/rooms/{slug}` | 아니요 | 방 보기 | |
+| GET | `/api/rooms/{slug}` | 예(가입) | 방 보기 (로그인 필수(2026-10-01 사용자 결정)) | |
 | PUT | `/api/rooms/me/layout` | 예(가입) | 내 방 바닥, 벽지, 배치 저장 | |
-| POST | `/api/rooms/{slug}/visits` | 아니요 | 방문 기록, 투데이/토탈 | |
-| GET | `/api/rooms/{slug}/guestbook` | 아니요 | 방명록 목록 | |
+| POST | `/api/rooms/{slug}/visits` | 예(가입) | 방문 기록, 투데이/토탈 | |
+| GET | `/api/rooms/{slug}/guestbook` | 예(가입) | 방명록 목록 | |
 | POST | `/api/rooms/{slug}/guestbook` | 예(가입) | 방명록 쓰기 | |
 | DELETE | `/api/guestbook/{entryId}` | 예 | 방명록 삭제(방 주인 또는 글쓴이) | |
 | POST | `/api/rooms/me/guestbook/checked` | 예(가입) | 내 방 새 글 개수를 0으로 | 새로 추가 |
@@ -169,10 +169,10 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 { "today": 6, "total": 129, "counted": true }
 ```
 
-- 방문자 구분: 로그인 사용자는 사용자 ID, 비로그인은 쿠키 `mr_vk`(서버가 없으면 만든다. 랜덤 값, `HttpOnly`, `SameSite=Lax`, 1년).
-- 같은 방문자는 같은 방에 KST 하루 1회만 센다(`counted: false`). DB 고유 제약 `(room_id, visit_date, visitor_key)`로 보장.
+- 방문자는 사용자 ID로 구분한다(로그인 필수라 비로그인 방문이 없다).
+- 같은 사용자는 같은 방에 KST 하루 1회만 센다(`counted: false`). DB 고유 제약 `(room_id, visit_date, user_id)`로 보장.
 - 방 주인 본인은 세지 않는다.
-- 비로그인 방문자가 나중에 가입하면 그 `mr_vk`를 사용자에 연결한다(지표: 초대 전환율).
+- 로그인 전 쿠키 `mr_vk`(랜덤, `HttpOnly`, `SameSite=Lax`, 1년)는 지표에만 쓴다: `/s/{slug}`의 `share_open`과 모바일 안내의 `mobile_notice`에 붙이고, 가입할 때 `users.visitor_key`로 연결한다(초대 전환율).
 - 방 보기 화면에 들어올 때 한 번 부른다. `GET /api/rooms/{slug}`에서 세지 않는 이유: 메신저 미리보기, 새로고침, 꾸미기 저장 후 다시 읽기를 방문으로 세지 않기 위해.
 
 ## 방명록

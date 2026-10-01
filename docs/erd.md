@@ -12,6 +12,7 @@
 erDiagram
   users ||--o| rooms : "가입하면 1개"
   users ||--o{ guestbook_entries : "씀"
+  users ||--o{ room_daily_visits : "방문함"
   rooms ||--o{ guestbook_entries : "받음"
   rooms ||--o{ room_daily_visits : "방문"
   rooms ||--o{ room_expansions : "넓힘 기록"
@@ -27,7 +28,7 @@ erDiagram
     timestamptz terms_agreed_at
     timestamptz privacy_agreed_at
     timestamptz guestbook_checked_at
-    varchar visitor_key "가입 전 방문 쿠키"
+    varchar visitor_key "로그인 전 쿠키, 지표용"
     smallint expansion_tickets "MVP 확장권"
     timestamptz created_at
     timestamptz last_login_at
@@ -52,7 +53,7 @@ erDiagram
     bigint id PK
     bigint room_id FK
     date visit_date "KST"
-    varchar visitor_key
+    bigint user_id FK
     timestamptz created_at
   }
   room_expansions {
@@ -89,8 +90,8 @@ erDiagram
 | `nickname` | `varchar(12)` | | 2~12자(앱에서 검사). `null`이면 가입 전 |
 | `age_confirmed_at`, `terms_agreed_at`, `privacy_agreed_at` | `timestamptz` | | 첫 가입 때 같이 채운다. 세 값과 `nickname`이 함께 있어야 가입 완료 |
 | `guestbook_checked_at` | `timestamptz` | | 내 방 방명록 패널을 연 시각. 새 글 개수 기준 |
-| `visitor_key` | `varchar(40)` | | 가입 전 방문 쿠키(`mr_vk`) 값. 초대 전환율 집계용 |
-| `expansion_tickets` | `smallint` | not null default 0, `>= 0` | MVP 확장권 개수(지인 테스트 이벤트로 지급) |
+| `visitor_key` | `varchar(40)` | | 로그인 전 쿠키(`mr_vk`) 값. `share_open`, `mobile_notice` 이벤트와 이어 초대 전환율을 센다 |
+| `expansion_tickets` | `smallint` | not null default 0, `>= 0` | MVP 확장권 개수. 지급 방식은 방명록이 생긴 뒤 정한다(열린 질문 1) |
 | `created_at`, `last_login_at` | `timestamptz` | not null | V1 |
 
 - 가입 완료 확인: `check ((nickname is null) = (terms_agreed_at is null))` 정도로 둘을 묶는다(동의 없이 닉네임만 있는 상태를 막음).
@@ -131,13 +132,13 @@ erDiagram
 | `id` | `bigint` identity | PK | |
 | `room_id` | `bigint` | not null, FK → `rooms` `on delete cascade` | |
 | `visit_date` | `date` | not null | 앱에서 KST로 계산 |
-| `visitor_key` | `varchar(40)` | not null | 로그인 사용자 `u:{users.id}`, 비로그인 `v:{mr_vk 쿠키}` |
+| `user_id` | `bigint` | not null, FK → `users` `on delete cascade` | 방문한 사용자(로그인 필수라 비로그인 방문 없음) |
 | `created_at` | `timestamptz` | not null default now() | |
 
-- `unique (room_id, visit_date, visitor_key)`: 하루 1회를 DB가 보장한다. 기록은 `insert ... on conflict do nothing`으로, 들어갔으면 `counted: true`.
+- `unique (room_id, visit_date, user_id)`: 하루 1회를 DB가 보장한다. 기록은 `insert ... on conflict do nothing`으로, 들어갔으면 `counted: true`.
 - 투데이 = `room_id`와 오늘 날짜의 행 수, 토탈 = `room_id`의 행 수. 위 고유 인덱스가 둘 다 받친다. 방문이 많아져 토탈 집계가 느려지면 `rooms`에 누적 칸을 두는 것을 그때 검토한다(지금은 하지 않음).
 - 방 주인 본인은 앱이 기록하지 않는다.
-- 비로그인으로 들어왔다가 같은 날 로그인하면 `v:`와 `u:` 두 번 셀 수 있다. MVP에서는 받아들인다(가입할 때 `users.visitor_key`로 연결하면 지표에서는 같은 사람으로 본다).
+- 로그인 필수(2026-10-01 사용자 결정)이라 비로그인 방문 쿠키가 필요 없다. 탈퇴하면 그 사람의 방문 기록도 지워진다(토탈이 줄어듦, 받아들임).
 
 ### room_expansions
 
@@ -159,7 +160,7 @@ erDiagram
 | `id` | `bigint` identity | PK | |
 | `type` | `varchar(32)` | not null, check 목록 | `share_open`, `mobile_notice`, `signup`, `session_start`, `furniture_move` |
 | `user_id` | `bigint` | FK → `users` `on delete set null` | 탈퇴해도 집계는 남긴다 |
-| `visitor_key` | `varchar(40)` | | |
+| `visitor_key` | `varchar(40)` | | 로그인 전 이벤트(`share_open`, `mobile_notice`)의 쿠키 값 |
 | `room_id` | `bigint` | FK → `rooms` `on delete set null` | |
 | `ref` | `varchar(64)` | | 유입 경로(`share` 등) |
 | `device` | `varchar(8)` | | 서버가 User-Agent로 |
@@ -189,5 +190,5 @@ erDiagram
 
 ## 열린 질문
 
-1. **확장권 지급 방식**: 지인 테스트에서 누구에게 몇 개를 줄까? 추천: 가입하면 1개(16×16까지 바로 써 보게), 친구를 초대해 그 친구가 가입하면 1개 더. 초대 보상은 지표(초대 전환율)와도 맞물린다.
+1. **확장권 지급 방식**: 보류(2026-10-01). 가입 때 1개는 로그인 필수(2026-10-01 사용자 결정)이라 모두 받게 되어 의미가 없고(사용자 의견), 방명록·초대처럼 보상할 행동이 아직 없다. 방명록이 생긴 뒤 정한다. 구조(`expansion_tickets`, `room_expansions`)만 둔다.
 2. **방문 기록 보관 기간**: 토탈을 이 표의 행 수로 세므로 지우면 토탈이 줄어든다. MVP는 지우지 않는 것을 추천.
