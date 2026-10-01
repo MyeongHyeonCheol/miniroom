@@ -36,5 +36,27 @@ services:
     ports:
       - "8080:8080"
 
+  # Integration tests against the postgres above, in schema "it" (never touches public).
+  # Run: docker compose run --rm backend-test   (uses the current source, no image rebuild)
+  backend-test:
+    image: eclipse-temurin:25-jdk
+    profiles: ["test"]
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - gradle-cache:/root/.gradle
+    environment:
+      DB_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-miniroom}
+      POSTGRES_USER: ${POSTGRES_USER:-miniroom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      SPRING_PROFILES_ACTIVE: it
+      TZ: Asia/Seoul
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "./gradlew", "--no-daemon", "--project-cache-dir", "/tmp/gradle-project", "integrationTest"]
+
 volumes:
   pgdata:
+  gradle-cache:

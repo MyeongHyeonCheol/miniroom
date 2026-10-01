@@ -22,6 +22,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	implementation 'org.flywaydb:flyway-database-postgresql'
@@ -34,9 +35,21 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// Unit tests run in the image build (no DB). Integration tests need PostgreSQL:
+// docker compose run --rm backend-test
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform { excludeTags 'integration' }
 	testLogging { events 'passed', 'failed', 'skipped' }
+}
+
+tasks.register('integrationTest', Test) {
+	description = 'Tests tagged integration, against a real PostgreSQL'
+	group = 'verification'
+	useJUnitPlatform { includeTags 'integration' }
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	shouldRunAfter tasks.named('test')
+	testLogging { events 'passed', 'failed', 'skipped'; exceptionFormat 'full' }
 }
 
 // Only the executable jar, so the Dockerfile can copy a single file

@@ -15,15 +15,10 @@ public class UserService {
         this.clock = clock;
     }
 
-    /** Called after every successful Google login. One row per Google account (google_sub is unique). */
+    /** Called after every successful Google login. One row per Google account, safe under concurrent logins. */
     @Transactional
     public User recordLogin(String googleSub, String email) {
-        var now = clock.instant();
-        return users.findByGoogleSub(googleSub)
-                .map(user -> {
-                    user.recordLogin(email, now);
-                    return user;
-                })
-                .orElseGet(() -> users.save(new User(googleSub, email, now)));
+        users.upsertLogin(googleSub, email, clock.instant());
+        return users.findByGoogleSub(googleSub).orElseThrow();
     }
 }

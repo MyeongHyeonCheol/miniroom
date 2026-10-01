@@ -1,12 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRoomStore } from '../store/roomStore'
 
 type Me = { email: string }
 export type MeState = { status: 'loading' } | { status: 'in'; email: string } | { status: 'out' } | { status: 'unavailable' }
 
-/** 401 means logged out; anything else that fails (backend not running) hides the login area. */
+/**
+ * 401 means logged out; anything else that fails (backend not running) hides the login area.
+ * 401 {"reason":"replaced"}: the account logged in elsewhere and this session was ended (one login per account).
+ */
 async function fetchMe(): Promise<Me | null> {
   const res = await fetch('/api/me', { credentials: 'same-origin' })
-  if (res.status === 401) return null
+  if (res.status === 401) {
+    const body = await res.json().catch(() => null)
+    if (body?.reason === 'replaced') useRoomStore.getState().notify('다른 곳에서 로그인해서 여기서는 로그아웃됐어요', 'error')
+    return null
+  }
   if (!res.ok) throw new Error(`/api/me ${res.status}`)
   return res.json()
 }

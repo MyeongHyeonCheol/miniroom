@@ -1,0 +1,13 @@
+# Integration tests (docker compose run --rm backend-test): real PostgreSQL, isolated schema "it".
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${POSTGRES_DB:miniroom}?currentSchema=it
+  flyway:
+    schemas: it
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-id
+            client-secret: test-secret

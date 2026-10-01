@@ -5,6 +5,12 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/${POSTGRES_DB:miniroom}
     username: ${POSTGRES_USER:miniroom}
     password: ${POSTGRES_PASSWORD:}
+  # Login sessions live in PostgreSQL (V2 migration): survive restarts, needed for one-login-per-account.
+  # Idle timeout 7 days, renewed on every request. The cookie itself caps at 30 days (see server.servlet).
+  session:
+    timeout: 7d
+    jdbc:
+      initialize-schema: never
   jpa:
     open-in-view: false
     hibernate:
@@ -21,6 +27,13 @@ spring:
 server:
   # Behind the Vite proxy: build OAuth redirect URLs from X-Forwarded-* (localhost:5173), not localhost:8080
   forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        # Spring Session writes the cookie at login only, so this is a fixed cap: re-login at least every 30 days
+        max-age: 30d
+        http-only: true
+        same-site: lax
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
