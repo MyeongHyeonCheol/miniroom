@@ -30,7 +30,7 @@
 
 MVP에서는 Redis, WebSocket, MongoDB, S3를 넣지 않는다. 필요해 보이면 추가하기 전에 먼저 제안한다.
 
-프론트 명령(`frontend/`에서): `npm run dev`(개발 서버, 같은 네트워크에서 접속 가능), `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run measure`(개발 서버를 띄운 상태에서 fps, 드로우콜, 로딩 시간 측정).
+프론트 명령(`frontend/`에서): `npm run dev`(개발 서버, 같은 네트워크에서 접속 가능), `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run measure`(개발 서버를 띄운 상태에서 fps, 드로우콜, 로딩 시간 측정. 두 번째 인자로 주소 뒤에 붙일 값, 예: `npm run measure -- http://localhost:5173 stress=30`), `npm run fonts:subset`(`assets/fonts/` 원본과 Gaegu를 글자 범위별 조각으로 나눠 `public/fonts/`와 `src/styles/fonts.css`를 다시 만듦).
 
 ## 폴더 구조
 
@@ -44,7 +44,8 @@ miniroom/
 ├── backend/             # Spring Boot
 ├── assets/
 │   ├── blender/         # 가구 생성 Python 스크립트, .blend 원본
-│   └── export/          # 압축 전 glb
+│   ├── export/          # 압축 전 glb
+│   └── fonts/           # 폰트 원본 (나눈 결과는 frontend/public/fonts/)
 └── docs/                # PRD, 개발 프로세스, API 명세, ERD
     └── worklog/         # 작업 기록 (날짜별 파일)
 ```

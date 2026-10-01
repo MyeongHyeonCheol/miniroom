@@ -12,6 +12,7 @@ import { layoutJsonOf, useRoomStore } from './store/roomStore'
 import { Button } from './ui/Button'
 import { FurniturePanel } from './ui/FurniturePanel'
 import { SegmentedControl } from './ui/SegmentedControl'
+import { SketchFilters } from './ui/SketchFilters'
 import { Toast } from './ui/Toast'
 
 function Lights() {
@@ -113,6 +114,7 @@ export default function App() {
       <FurniturePanel className="absolute right-6 bottom-6" />
       <StatsCard className="absolute top-6 right-6 w-60" />
       <Toast />
+      <SketchFilters />
     </main>
   )
 }

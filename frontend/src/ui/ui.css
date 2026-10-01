@@ -1,55 +1,78 @@
-/* Common components. Spec: docs/design.md "공통 컴포넌트". Only tokens, no raw values for color. */
+/* Common components. Spec: docs/design.md "볼펜 선", "공통 컴포넌트". Only tokens, no raw values for color.
+ * Pen-line parts draw on ::before (fill + line) and ::after (button thickness / hatched shadow), and only
+ * those layers get the wobble filter so text stays sharp. Each part sets --fill / --line for its layers. */
+
+/* Shared pen-line layers ------------------------------------------------------- */
+:is(.btn, .icon-btn, .card, .tile, .seg, .toast) {
+  position: relative; isolation: isolate;
+  border: 0; background: transparent;
+}
+:is(.btn, .icon-btn, .card, .tile, .seg, .toast)::before,
+:is(.btn, .icon-btn, .card, .tile)::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  border-radius: var(--radius-shape); filter: var(--wobble, var(--sketch-wobble));
+}
+:is(.btn, .icon-btn, .card, .tile, .seg, .toast)::before {
+  z-index: -1;
+  background: var(--sketch-paper), var(--fill, var(--color-surface));
+  border: var(--sketch-line) var(--line-style, solid) var(--line, var(--color-ink));
+}
+/* Thickness under pressable things */
+:is(.btn, .icon-btn)::after { z-index: -2; translate: 0 3px; background: var(--color-ink); }
+/* Pencil-hatched shadow under cards and tiles */
+:is(.card, .tile)::after { z-index: -2; background: var(--sketch-hatch); opacity: 0.55; }
 
 /* Button ------------------------------------------------------------------ */
 .btn {
+  --radius-shape: var(--sketch-radius-sm);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 40px; padding: 0 18px;
-  border: 0; border-radius: var(--radius-md);
+  color: var(--color-ink);
   font: 700 15px/20px var(--font-base); letter-spacing: -0.01em;
   cursor: pointer; user-select: none;
-  transition: background-color var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
+.btn::after { transition: opacity var(--duration-fast) var(--ease-out); }
 .btn-sm { height: 32px; padding: 0 12px; font: 700 14px/22px var(--font-base); }
 .btn-lg { height: 48px; padding: 0 24px; font: 800 16px/20px var(--font-base); }
 
-.btn-primary { background: var(--color-primary); color: var(--color-ink); box-shadow: 0 3px 0 var(--color-primary-active); }
-.btn-primary:hover { background: var(--color-primary-hover); transform: translateY(-1px); }
-.btn-primary:active { background: var(--color-primary-active); transform: translateY(3px); box-shadow: 0 0 0 transparent; }
+.btn-primary { --fill: var(--color-primary); }
+.btn-primary:hover { --fill: var(--color-primary-hover); }
+.btn-primary:active { --fill: var(--color-primary-active); }
 
-.btn-secondary {
-  background: var(--color-surface); color: var(--color-ink);
-  box-shadow: inset 0 0 0 1px var(--color-border-strong), 0 3px 0 var(--color-border-strong);
-}
-.btn-secondary:hover { transform: translateY(-1px); }
-.btn-secondary:active {
-  background: var(--color-surface-sunken); transform: translateY(3px);
-  box-shadow: inset 0 0 0 1px var(--color-border-strong), 0 0 0 transparent;
-}
+.btn-secondary:active { --fill: var(--color-surface-sunken); }
 
-.btn-ghost { background: transparent; color: var(--color-ink-soft); }
-.btn-ghost:hover { background: var(--color-surface-sunken); color: var(--color-ink); }
-.btn-ghost:active { background: var(--color-border); }
+.btn-ghost { --fill: transparent; --line: transparent; color: var(--color-ink-soft); }
+.btn-ghost::before { background: var(--fill); }
+.btn-ghost::after { display: none; }
+.btn-ghost:hover { --fill: var(--color-surface-sunken); --line: var(--color-ink-soft); color: var(--color-ink); }
+.btn-ghost:active { --fill: var(--color-border); }
 
-.btn-danger { background: var(--color-danger); color: var(--color-surface); box-shadow: 0 3px 0 var(--color-danger-active); }
-.btn-danger:hover { background: var(--color-danger-hover); transform: translateY(-1px); }
-.btn-danger:active { background: var(--color-danger-active); transform: translateY(3px); box-shadow: 0 0 0 transparent; }
+.btn-danger { --fill: var(--color-danger); color: var(--color-surface); }
+.btn-danger:hover { --fill: var(--color-danger-hover); }
+.btn-danger:active { --fill: var(--color-danger-active); }
 
-.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(3px); }
+.btn:active::after { opacity: 0; }
 .btn:disabled, .btn:disabled:hover, .btn:disabled:active {
-  background: var(--color-surface-sunken); color: var(--color-ink-faint);
-  box-shadow: none; transform: none; cursor: not-allowed;
+  --fill: var(--color-surface-sunken); --line: var(--color-ink-faint); --line-style: dashed;
+  color: var(--color-ink-faint); transform: none; cursor: not-allowed;
 }
+.btn:disabled::after { display: none; }
 
 /* SegmentedControl ------------------------------------------------------------ */
 .seg {
-  position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-  padding: 4px; border-radius: var(--radius-pill); background: var(--color-surface-sunken);
+  --radius-shape: var(--radius-pill);
+  --fill: var(--color-surface-sunken); --line: var(--color-ink-soft); --line-style: dashed;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding: 4px;
 }
+.seg::before { border-width: 1.5px; }
 .seg-thumb {
   position: absolute; top: 4px; bottom: 4px; left: 4px;
-  border-radius: var(--radius-pill); background: var(--color-surface); box-shadow: var(--shadow-sm);
+  border: var(--sketch-line) solid var(--color-ink); border-radius: var(--sketch-radius-sm);
+  background: var(--color-primary-subtle); filter: var(--sketch-wobble);
   transition: transform var(--duration-base) var(--ease-out);
 }
 .seg-item {
@@ -60,53 +83,60 @@
 }
 .seg-item:hover { color: var(--color-ink); }
 .seg-item[aria-checked="true"] { color: var(--color-ink); font-weight: 700; }
-.seg-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Card / Panel -------------------------------------------------------------- */
 .card {
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: var(--space-5);
+  --radius-shape: var(--sketch-radius-lg); --wobble: var(--sketch-wobble-soft);
+  padding: var(--space-5);
 }
+.card::after { translate: 4px 5px; }
 .panel { width: 360px; max-width: calc(100vw - 2 * var(--space-4)); padding: var(--space-6); }
 
 .field-label { display: block; margin-bottom: var(--space-2); color: var(--color-ink-soft); }
 
 /* IconButton (floating over 3D) -------------------------------------------- */
 .icon-btn {
+  --radius-shape: var(--radius-pill);
   display: inline-grid; place-items: center; width: 44px; height: 44px;
-  border: 0; border-radius: var(--radius-pill);
-  background: var(--color-surface); color: var(--color-ink); box-shadow: var(--shadow-md);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  color: var(--color-ink); cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out);
 }
-.icon-btn:hover { background: var(--color-surface-sunken); transform: translateY(-1px); }
-.icon-btn:active { background: var(--color-border); transform: translateY(1px); }
-.icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.icon-btn:hover { --fill: var(--color-surface-sunken); transform: translateY(-1px); }
+.icon-btn:active { --fill: var(--color-border); transform: translateY(3px); }
+.icon-btn:active::after { opacity: 0; }
 
 /* FurnitureTile ------------------------------------------------------------- */
 .tile {
+  --radius-shape: var(--sketch-radius-md);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   width: 88px; height: 88px; padding: 6px;
-  border: 2px solid transparent; border-radius: var(--radius-md);
-  background: var(--color-surface); box-shadow: var(--shadow-sm);
   text-align: center; cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
-.tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
-.tile:active { transform: translateY(1px); box-shadow: var(--shadow-sm); }
-.tile:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tile::after { translate: 3px 3px; }
+.tile:hover { transform: translateY(-1px); }
+.tile:active { transform: translateY(1px); }
+.tile:active::after { opacity: 0; }
 .tile:disabled, .tile:disabled:hover {
-  background: var(--color-surface-sunken); color: var(--color-ink-faint);
-  box-shadow: none; transform: none; cursor: not-allowed;
+  --fill: var(--color-surface-sunken); --line: var(--color-ink-faint); --line-style: dashed;
+  color: var(--color-ink-faint); transform: none; cursor: not-allowed;
 }
+.tile:disabled::after { display: none; }
+
+/* Keyboard focus: dashed outline (design.md "상호작용 상태") ------------------------- */
+:is(.btn, .icon-btn, .tile, .seg-item):focus-visible {
+  outline: 2px dashed var(--color-primary-active); outline-offset: 5px;
+}
+.seg-item:focus-visible { outline-offset: 1px; }
 
 /* Toast ----------------------------------------------------------------------- */
 .toast {
+  --radius-shape: var(--radius-pill); --fill: var(--color-ink); --line: var(--color-ink);
   display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px;
-  border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-bg);
-  box-shadow: var(--shadow-lg); font: 700 14px/22px var(--font-base);
+  color: var(--color-bg); font: 700 14px/22px var(--font-base);
   animation: toast-in var(--duration-base) var(--ease-pop);
 }
+.toast::before { background: var(--fill); }
 .toast-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--color-success); }
 .toast-error .toast-dot { background: var(--color-danger); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } }

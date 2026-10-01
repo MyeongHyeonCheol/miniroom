@@ -8,3 +8,6 @@ body {
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Titles are handwritten (design.md "폰트"). Size/weight/spacing come from the text-* tokens. */
+.text-display, .text-title, .text-heading { font-family: var(--font-hand); }

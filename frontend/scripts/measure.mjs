@@ -1,9 +1,11 @@
 // Stage-1 measurement: open the room, wait, print GPU + perf stats, save screenshots.
-// Usage: node scripts/measure.mjs [baseUrl]   (dev server must be running)
+// Usage: node scripts/measure.mjs [baseUrl] [extraQuery]   (dev server must be running)
+// extraQuery is appended to every case (e.g. `skin=a`) and to the screenshot name.
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
 const base = process.argv[2] ?? 'http://localhost:5173'
+const extra = process.argv[3] ?? ''
 const outDir = 'test-results/measure'
 mkdirSync(outDir, { recursive: true })
 
@@ -17,7 +19,9 @@ page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 
 for (const [name, query] of [['default', ''], ['stress30', '?stress=30'], ['stress30-shadows', '?stress=30&shadows=1']]) {
-  await page.goto(`${base}/${query}`, { waitUntil: 'load' })
+  const url = extra ? `${base}/${query ? `${query}&` : '?'}${extra}` : `${base}/${query}`
+  const shot = extra ? `${name}-${extra.replace(/[^a-z0-9]+/gi, '-')}` : name
+  await page.goto(url, { waitUntil: 'load' })
   await page.waitForFunction(() => window.__miniroomStats?.furnitureReadyMs != null, null, { timeout: 30_000 })
   await page.waitForTimeout(3000) // let fps settle
   const result = await page.evaluate(() => {
@@ -28,8 +32,8 @@ for (const [name, query] of [['default', ''], ['stress30', '?stress=30'], ['stre
     const bytes = performance.getEntriesByType('resource').reduce((a, r) => a + (r.transferSize || 0), 0)
     return { gpu, stats: window.__miniroomStats, domContentLoadedMs: Math.round(nav.domContentLoadedEventEnd), transferKB: Math.round(bytes / 1024) }
   })
-  await page.screenshot({ path: `${outDir}/${name}.png` })
-  console.log(name, JSON.stringify(result))
+  await page.screenshot({ path: `${outDir}/${shot}.png` })
+  console.log(shot, JSON.stringify(result))
 }
 if (errors.length) console.log('ERRORS', errors)
 await browser.close()

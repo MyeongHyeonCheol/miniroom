@@ -21,9 +21,10 @@
   --default-font-family: var(--font-base);
 
   /* type scale: size / line height / letter spacing / weight */
-  --text-display: 32px;  --text-display--line-height: 40px;  --text-display--letter-spacing: -0.02em;  --text-display--font-weight: 800;
-  --text-title: 24px;    --text-title--line-height: 32px;    --text-title--letter-spacing: -0.02em;    --text-title--font-weight: 800;
-  --text-heading: 18px;  --text-heading--line-height: 26px;  --text-heading--letter-spacing: -0.015em; --text-heading--font-weight: 700;
+  /* display/title/heading use --font-hand (Gaegu 700), set in base.css */
+  --text-display: 40px;  --text-display--line-height: 44px;  --text-display--letter-spacing: -0.1em;   --text-display--font-weight: 700;
+  --text-title: 32px;    --text-title--line-height: 36px;    --text-title--letter-spacing: -0.1em;     --text-title--font-weight: 700;
+  --text-heading: 24px;  --text-heading--line-height: 28px;  --text-heading--letter-spacing: -0.08em;  --text-heading--font-weight: 700;
   --text-body: 16px;     --text-body--line-height: 26px;     --text-body--letter-spacing: -0.01em;     --text-body--font-weight: 400;
   --text-label: 15px;    --text-label--line-height: 20px;    --text-label--letter-spacing: -0.01em;    --text-label--font-weight: 700;
   --text-small: 14px;    --text-small--line-height: 22px;    --text-small--letter-spacing: -0.005em;   --text-small--font-weight: 400;
@@ -88,7 +89,15 @@
 
 /* Tokens that are not Tailwind theme namespaces */
 :root {
-  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 6px var(--color-primary);
+  /* sketch (pen line). Filters live in ui/SketchFilters.tsx */
+  --sketch-line: 2px;
+  --sketch-wobble: url(#sketch-wobble);
+  --sketch-wobble-soft: url(#sketch-wobble-soft);
+  --sketch-radius-sm: 18px 12px 16px 13px / 13px 16px 12px 18px;
+  --sketch-radius-md: 22px 14px 20px 16px / 16px 20px 14px 22px;
+  --sketch-radius-lg: 26px 16px 24px 18px / 18px 24px 16px 26px;
+  --sketch-hatch: repeating-linear-gradient(-45deg, var(--color-ink-soft) 0 1.2px, transparent 1.2px 5px);
+  --sketch-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.37 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
   --duration-fast: 120ms;
