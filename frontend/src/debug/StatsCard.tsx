@@ -1,3 +1,4 @@
+import { MAX_PIECES } from '../room/placement'
 import { layoutJsonOf, useRoomStore } from '../store/roomStore'
 import { usePerfStore } from './perf'
 
@@ -9,7 +10,7 @@ export function StatsCard({ className = '' }: { className?: string }) {
   const pieces = useRoomStore((r) => r.placements.length)
   const jsonBytes = useRoomStore((r) => new Blob([layoutJsonOf(r)]).size)
   const rows: [string, string, string?][] = [
-    ['가구', `${pieces}개`, '한도 30'],
+    ['가구', `${pieces}개`, `한도 ${MAX_PIECES}`],
     ['fps', `${s.fps}`, `${s.frameMs}ms`],
     ['드로우콜', `${s.drawCalls}`, '한도 100'],
     ['삼각형', s.triangles.toLocaleString()],

@@ -5,6 +5,7 @@ import { PerfProbe } from './debug/PerfProbe'
 import { StatsCard } from './debug/StatsCard'
 import { FurnitureLayer } from './furniture/Furniture'
 import { CameraRig } from './room/CameraRig'
+import { Island } from './room/Island'
 import { PlacementOverlay } from './room/PlacementOverlay'
 import { ROOM_SIZE } from './room/placement'
 import { Room } from './room/Room'
@@ -28,10 +29,10 @@ function Lights() {
         color="#fff1dc"
         castShadow={shadows}
         shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-4}
-        shadow-camera-right={4}
-        shadow-camera-top={4}
-        shadow-camera-bottom={-4}
+        shadow-camera-left={-c - 1}
+        shadow-camera-right={c + 1}
+        shadow-camera-top={c + 1}
+        shadow-camera-bottom={-c - 1}
         shadow-bias={-0.0005}
       >
         <object3D attach="target" position={[c, 0, c]} />
@@ -95,11 +96,12 @@ export default function App() {
   const shadows = useRoomStore((s) => s.shadows)
   useKeyboardShortcuts()
   return (
-    <main className="relative h-full overflow-hidden">
+    <main className="room-sky relative h-full overflow-hidden">
       <Canvas className="absolute! inset-0" dpr={[1, 2]} flat shadows={shadows} gl={{ antialias: true }}>
         <CameraRig />
         <Lights />
         <Room />
+        <Island />
         <Suspense fallback={null}>
           <FurnitureLayer />
         </Suspense>

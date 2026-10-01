@@ -21,7 +21,7 @@ test('room renders with furniture and no errors', async ({ page }) => {
 test('30 pieces stay within the draw-call budget', async ({ page }) => {
   await page.goto('/?stress=30')
   const stats = await waitForRoom(page)
-  await expect(page.locator('[data-stat="가구"]')).toHaveText('30개한도 30')
+  await expect(page.locator('[data-stat="가구"]')).toHaveText('30개한도 45')
   expect(stats.drawCalls).toBeLessThanOrEqual(100)
 })
 

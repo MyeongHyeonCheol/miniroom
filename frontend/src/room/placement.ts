@@ -1,14 +1,26 @@
 /**
  * Room coordinates.
  *
- * - 1 cell = 0.5 m, room = 8 x 8 cells. Cell (x, y): x grows along world +X, y along world +Z.
+ * - 1 cell = 0.5 m. The room is GRID x GRID cells (AGENTS.md: 12 on signup, widened to 16/20/24).
+ *   Cell (x, y): x grows along world +X, y along world +Z. Widening adds cells on the +X/+Z side only,
+ *   so saved anchors stay valid.
  * - Walls stand on the x = 0 side (left) and the y = 0 side (back). The camera looks from +X/+Z.
  * - A placement is stored as the anchor cell (top-left = min x, min y of the footprint) + rotation.
  * - Models have their origin at the footprint center on the floor and face +Z at rotation 0.
  *   Rotation is clockwise seen from above, in 90-degree steps.
  */
 export const CELL = 0.5
-export const GRID = 8
+/** Room sides a room can have, and the piece limit (wall decor included) for each. AGENTS.md "3D 방과 가구 규칙". */
+export const PIECE_LIMITS = { 12: 45, 16: 60, 20: 90, 24: 120 } as const
+export type RoomSide = keyof typeof PIECE_LIMITS
+
+/** Until rooms come from the API every room is the signup size. `?grid=16` (12/16/20/24) previews a widened room. */
+function roomSide(): RoomSide {
+  // globalThis: pure-logic tests import this module in Node, where there is no window
+  const v = Number(new URLSearchParams(globalThis.location?.search ?? '').get('grid'))
+  return v in PIECE_LIMITS ? (v as RoomSide) : 12
+}
+export const GRID: RoomSide = roomSide()
 export const ROOM_SIZE = CELL * GRID
 
 /** Room shell, in meters. Walls stand outside the grid (x < 0, z < 0). */
@@ -61,7 +73,7 @@ export function insideRoom(p: Pick<Placement, 'x' | 'y' | 'rotation'>, size: rea
   return p.x >= 0 && p.y >= 0 && p.x + w <= GRID && p.y + d <= GRID
 }
 
-export const MAX_PIECES = 30
+export const MAX_PIECES: number = PIECE_LIMITS[GRID]
 
 export type FurnitureInfo = { size: readonly [number, number]; category: string }
 export type Lookup = (furnitureId: string) => FurnitureInfo

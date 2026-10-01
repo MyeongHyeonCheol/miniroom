@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { lookupFurniture } from '../src/furniture/catalog'
 import { parseLayoutJson, toLayoutJson, type Layout } from '../src/room/layoutJson'
 import { stressLayout } from '../src/room/layouts'
-import { coveredCells, toWorld, type Placement } from '../src/room/placement'
+import { coveredCells, GRID, MAX_PIECES, toWorld, type Placement } from '../src/room/placement'
 
 const EMPTY: Layout = { floor: 'wood', wall: 'ivory', placements: [] }
 const parse = (value: unknown) => {
@@ -44,24 +44,24 @@ test.describe('layout json', () => {
       items: [
         { id: 'bed', x: 0, y: 0, r: 0 },
         { id: 'plant_pot', x: 1, y: 1, r: 0 }, // overlaps the bed
-        { id: 'computer_desk', x: 6, y: 0, r: 0 }, // 3 wide from x=6: outside
+        { id: 'computer_desk', x: GRID - 2, y: 0, r: 0 }, // 3 wide, 2 cells from the right wall: outside
         { id: 'sofa', x: 4, y: 4, r: 0 }, // not in the catalog
         { id: 'plant_pot', x: 4, y: 4, r: 45 }, // bad rotation
         { id: 'plant_pot', x: 4.5, y: 4, r: 0 }, // not a cell
         null,
-        { id: 'plant_pot', x: 7, y: 7, r: 270 },
+        { id: 'plant_pot', x: GRID - 1, y: GRID - 1, r: 270 },
       ],
     })
     expect(dropped).toBe(6)
     expect(layout.floor).toBe('wood')
     expect(layout.wall).toBe('skycheck')
-    expect(layout.placements.map((p) => [p.furnitureId, p.x, p.y])).toEqual([['bed', 0, 0], ['plant_pot', 7, 7]])
+    expect(layout.placements.map((p) => [p.furnitureId, p.x, p.y])).toEqual([['bed', 0, 0], ['plant_pot', GRID - 1, GRID - 1]])
   })
 
-  test('more than 30 pieces are cut at 30', () => {
-    const items = Array.from({ length: 40 }, (_, i) => ({ id: 'plant_pot', x: i % 8, y: Math.floor(i / 8), r: 0 }))
+  test('pieces past the room limit are cut', () => {
+    const items = Array.from({ length: MAX_PIECES + 10 }, (_, i) => ({ id: 'plant_pot', x: i % GRID, y: Math.floor(i / GRID), r: 0 }))
     const { layout, dropped } = parse({ v: 1, floor: 'wood', wall: 'ivory', items })
-    expect(layout.placements).toHaveLength(30)
+    expect(layout.placements).toHaveLength(MAX_PIECES)
     expect(dropped).toBe(10)
   })
 

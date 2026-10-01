@@ -1,5 +1,5 @@
 import { CATALOG_BY_ID } from '../furniture/catalog'
-import { coveredCells, insideRoom, type Placement, type Rotation } from './placement'
+import { coveredCells, GRID, insideRoom, type Placement, type Rotation } from './placement'
 
 /** Same layout as assets/blender/preview_room.py, headboard / desk back against the back wall. */
 export const DEFAULT_LAYOUT: Placement[] = [
@@ -35,8 +35,8 @@ export function stressLayout(count: number, seed = 1): Placement[] {
     for (let attempt = 0; attempt < 400; attempt++) {
       const p: Placement = {
         furnitureId: id,
-        x: Math.floor(rand() * 8),
-        y: Math.floor(rand() * 8),
+        x: Math.floor(rand() * GRID),
+        y: Math.floor(rand() * GRID),
         rotation: rotations[Math.floor(rand() * 4)],
       }
       if (!insideRoom(p, size)) continue

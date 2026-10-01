@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { coveredCells, insideRoom, rotatedSize, toWorld } from '../src/room/placement'
+import { coveredCells, GRID, insideRoom, rotatedSize, toWorld } from '../src/room/placement'
 
 // Pure-logic checks for the "anchor cell + rotation" rule. No browser needed.
 test.describe('placement', () => {
@@ -23,9 +23,11 @@ test.describe('placement', () => {
   })
 
   test('inside room check', () => {
-    expect(insideRoom({ x: 5, y: 6, rotation: 0 }, desk)).toBe(true)
-    expect(insideRoom({ x: 6, y: 6, rotation: 0 }, desk)).toBe(false)
-    expect(insideRoom({ x: 6, y: 5, rotation: 90 }, desk)).toBe(true)
-    expect(insideRoom({ x: 7, y: 5, rotation: 90 }, desk)).toBe(false)
+    // desk is 3x2, or 2x3 when turned; the room is GRID x GRID cells
+    expect(insideRoom({ x: GRID - 3, y: GRID - 2, rotation: 0 }, desk)).toBe(true)
+    expect(insideRoom({ x: GRID - 2, y: GRID - 2, rotation: 0 }, desk)).toBe(false)
+    expect(insideRoom({ x: GRID - 2, y: GRID - 3, rotation: 90 }, desk)).toBe(true)
+    expect(insideRoom({ x: GRID - 1, y: GRID - 3, rotation: 90 }, desk)).toBe(false)
+    expect(insideRoom({ x: -1, y: 0, rotation: 0 }, desk)).toBe(false)
   })
 })

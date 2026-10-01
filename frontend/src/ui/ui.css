@@ -129,6 +129,13 @@
 }
 .seg-item:focus-visible { outline-offset: 1px; }
 
+/* Room backdrop (design.md "방 바깥 배경"): sky behind the transparent canvas, the island is 3D -------- */
+.room-sky {
+  background:
+    var(--sketch-paper),
+    linear-gradient(180deg, var(--color-primary-subtle) 0%, var(--color-bg) 70%, var(--color-accent-subtle) 100%);
+}
+
 /* Toast ----------------------------------------------------------------------- */
 .toast {
   --radius-shape: var(--radius-pill); --fill: var(--color-ink); --line: var(--color-ink);

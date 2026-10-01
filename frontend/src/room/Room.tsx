@@ -13,8 +13,8 @@ export function Room() {
   const shadows = useRoomStore((s) => s.shadows)
   const select = useRoomStore((s) => s.select)
 
-  const floorTex = surfaceTexture('floor', floor, [4, 4])
-  const wallTex = surfaceTexture('wall', wall, [4, 2.4])
+  const floorTex = surfaceTexture('floor', floor, [GRID / 2, GRID / 2])
+  const wallTex = surfaceTexture('wall', wall, [GRID / 2, 2.4])
   const half = ROOM_SIZE / 2
 
   const gridGeometry = useMemo(() => {

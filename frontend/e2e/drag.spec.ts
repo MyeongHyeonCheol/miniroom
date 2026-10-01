@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { GRID } from '../src/room/placement'
 
 // Default layout: bed (0,0) 2x4, computer desk (3,0) 3x2, plant (6,0) 1x1. All rotation 0.
 const BED = 0
@@ -44,8 +45,8 @@ test('dropping on another piece snaps back with a notice', async ({ page }) => {
 
 test('dragging past the wall is blocked', async ({ page }) => {
   await openRoom(page)
-  // bed is 4 cells deep: moving it 5 cells forward pushes its footprint out of the room
-  await drag(page, [1, 2, 0.5], 0, 5)
+  // bed is 4 cells deep: moving it GRID - 3 cells forward pushes its footprint past the front edge
+  await drag(page, [1, 2, 0.5], 0, GRID - 3)
   expect(await placement(page, BED)).toMatchObject({ x: 0, y: 0 })
   await expect(page.getByRole('status')).toHaveText('방 밖으로 나가서 놓을 수 없어요')
 })
@@ -78,14 +79,14 @@ test('clicking the floor clears the selection', async ({ page }) => {
   expect(await page.evaluate(() => window.__miniroomRoom!().selected)).toBeNull()
 })
 
-test('furniture panel adds pieces and stops at 30', async ({ page }) => {
+test('furniture panel adds pieces and stops at the room limit (45 in a 12x12 room)', async ({ page }) => {
   await openRoom(page)
   await page.getByRole('button', { name: /화분/ }).click()
   await expect.poll(() => page.evaluate(() => window.__miniroomRoom!().placements.length)).toBe(4)
 
-  await openRoom(page, '?stress=30')
+  await openRoom(page, '?stress=45')
   await expect(page.getByRole('button', { name: /화분/ })).toBeDisabled()
-  await expect(page.getByText('가구는 30개까지 놓을 수 있어요')).toBeVisible()
+  await expect(page.getByText('가구는 45개까지 놓을 수 있어요')).toBeVisible()
 })
 
 test('30 pieces: draw calls stay within budget while dragging', async ({ page }) => {
