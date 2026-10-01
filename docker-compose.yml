@@ -1,0 +1,40 @@
+# Local stack: PostgreSQL + Spring Boot backend. Frontend runs separately with `npm run dev`.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-miniroom}
+      POSTGRES_USER: ${POSTGRES_USER:-miniroom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-miniroom}
+      POSTGRES_USER: ${POSTGRES_USER:-miniroom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Spring refuses to start with an empty client id, so fall back to a placeholder until keys exist
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-missing}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-missing}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      TZ: Asia/Seoul
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

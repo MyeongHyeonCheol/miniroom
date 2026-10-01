@@ -20,7 +20,7 @@ ERD나 API 명세보다 먼저 "이게 정말 되나?"를 확인한다. 설계 �
 | 3D 방 렌더링 | Three.js로 8×8칸 방, 고정 쿼터뷰 카메라, 바닥과 벽지 교체 | 내장 그래픽 노트북에서 30fps 이상 |
 | 가구 배치 | 그리드 스냅 드래그, 90도 회전, 칸 단위 겹침 판정 | 가구 30개(3종 복제)를 깔아도 드로우콜 100회 이하 |
 | 저장과 복원 | 배치를 "기준 칸 + 회전" JSON으로 만들어 새로고침 후 그대로 복원 (브라우저 저장소로 충분) | JSON 1개 10KB 이하, 3×2 가구를 회전해도 복원 위치가 같음 |
-| 로그인 | Spring Boot 3.x + Google OAuth2 로그인 한 번 성공 | 로그인 후 내 이메일이 화면에 표시 |
+| 로그인 | Spring Boot + Google OAuth2 로그인 한 번 성공 | 로그인 후 내 이메일이 화면에 표시 |
 
 에셋 제작 시간이 중요한 이유는 17종을 저녁마다 나눠 만들 수 있는지가 일정의 가장 큰 변수이기 때문이다. 1개에 2시간을 넘기면 가구 수를 줄이거나 무료 에셋을 섞는 쪽으로 PRD를 고친다.
 
@@ -81,7 +81,7 @@ MVP 테이블은 5개다. 가구 배치를 테이블로 쪼개지 않고 rooms�
 
 새 방명록 개수는 `guestbook_checked_at` 이후에 쓴 글을 세면 나오고, `guestbook_checked_at`은 주인이 자기 방의 방명록 패널을 열 때 갱신한다. 투데이는 오늘 날짜의 `room_daily_visits` 행 수, 토탈은 그 방의 전체 행 수다. 비로그인 방문자는 쿠키에 담은 임의 ID를 `visitor_key`로 쓰고, 로그인하면 그 `visitor_key`를 `users`에 저장해 가입 전 방문 기록과 연결한다.
 
-`visit_date`와 모든 날짜 집계는 한국 시간 기준이다. Docker의 MySQL은 기본이 UTC라서 그대로 두면 투데이가 오전 9시에 초기화된다. 백엔드와 MySQL 컨테이너 모두 `TZ=Asia/Seoul`로 두고, 방문 날짜는 앱에서 KST로 계산해 저장한다.
+`visit_date`와 모든 날짜 집계는 한국 시간 기준이다. 시각은 `timestamptz`로 저장하고, 방문 날짜는 앱에서 KST로 계산해 `date`로 저장한다(DB 기본 시간대에 기대면 투데이가 오전 9시에 초기화될 수 있다). 백엔드와 PostgreSQL 컨테이너 모두 `TZ=Asia/Seoul`로 둔다. 방 배치는 `jsonb` 컬럼이다.
 
 `events.type`은 MVP에서 다음 정도면 충분하다: `share_open`(공유 링크 열림), `mobile_notice`(모바일 안내 진입), `signup`, `session_start`(로그인 사용자 접속, 하루 1회), `furniture_move`.
 
@@ -92,17 +92,17 @@ MVP 테이블은 5개다. 가구 배치를 테이블로 쪼개지 않고 rooms�
 ```
 miniroom/
 ├── CLAUDE.md            # 프로젝트 규칙 (Claude Code가 매번 읽음)
-├── docker-compose.yml   # backend + mysql
+├── docker-compose.yml   # backend + postgres
 ├── frontend/            # Vite + Three.js + React
 │   └── public/models/   # 압축된 glb
-├── backend/             # Spring Boot 3.x (Gradle)
+├── backend/             # Spring Boot 4.x (Gradle)
 ├── assets/
 │   ├── blender/         # 가구 생성 Python 스크립트, .blend 원본
 │   └── export/          # 압축 전 glb
 └── docs/                # PRD, API 명세, ERD
 ```
 
-- **Docker Compose**: MVP는 `backend`와 `mysql` 컨테이너 두 개면 된다. 프론트엔드는 개발 중에는 `npm run dev`로 따로 띄운다.
+- **Docker Compose**: MVP는 `backend`와 `postgres` 컨테이너 두 개면 된다. 프론트엔드는 개발 중에는 `npm run dev`로 따로 띄운다.
 - **CLAUDE.md**: PRD의 핵심 규칙(가구 규격, 성능 예산, API 경로 규칙)과 폴더 구조를 적어둔다. 새 작업을 시킬 때마다 설명을 반복하지 않아도 된다.
 - **Git**: GitHub 저장소를 만들고 `main` 브랜치 하나에 기능 단위로 작은 커밋을 쌓는다. 1인 개발이라 복잡한 브랜치 전략은 필요 없다.
 - **환경 변수**: Google OAuth 클라이언트 ID와 DB 비밀번호는 `.env`에 두고 `.gitignore`에 넣는다.
@@ -126,11 +126,11 @@ miniroom/
 
 배포는 가장 단순하게 한다. 서버 한 대에 Docker Compose를 그대로 올리고, 프론트엔드와 glb는 정적 호스팅에 올려 CDN 효과를 공짜로 얻는다.
 
-- **백엔드**: 클라우드 VM 한 대(AWS Lightsail이나 EC2 같은 소형 인스턴스)에 `docker compose up`. MySQL 데이터는 볼륨으로 보관하고 하루 한 번 백업한다.
+- **백엔드**: 클라우드 VM 한 대(AWS Lightsail이나 EC2 같은 소형 인스턴스)에 `docker compose up`. PostgreSQL 데이터는 볼륨으로 보관하고 하루 한 번 백업한다.
 - **프론트엔드와 에셋**: Cloudflare Pages나 Vercel 같은 정적 호스팅. 빌드 결과와 glb가 CDN으로 자동 배포된다.
 - **도메인과 HTTPS**: 3단계 첫 배포 때 이미 만들어 둔 구성을 그대로 쓴다. 프론트는 루트, 백엔드는 `api.` 서브도메인이고, Google OAuth 리디렉션 주소도 그때 등록되어 있다.
 - **Google OAuth 게시 상태**: OAuth 동의 화면이 "테스트" 상태면 등록한 테스트 사용자만 로그인할 수 있다. 지인 테스트 전에 "프로덕션"으로 바꾼다. 이메일과 프로필만 요청하므로 별도 심사 없이 전환된다.
-- **지표 측정**: 별도 분석 도구 없이 MySQL 쿼리로 PRD 지표(방명록 교환율, 꾸미기 완료율, 답방률, D7 리텐션, 초대 전환율)를 계산한다. 방문, 방명록, events 테이블로 모두 나온다. 테스트 시작 전에 지표별 SQL을 `docs/metrics.sql`에 미리 써 두고, 더미 데이터로 결과를 확인한다.
+- **지표 측정**: 별도 분석 도구 없이 SQL로 PRD 지표(방명록 교환율, 꾸미기 완료율, 답방률, D7 리텐션, 초대 전환율)를 계산한다. 방문, 방명록, events 테이블로 모두 나온다. 테스트 시작 전에 지표별 SQL을 `docs/metrics.sql`에 미리 써 두고, 더미 데이터로 결과를 확인한다.
 - **출시 전 점검**: 개인정보처리방침과 이용약관 페이지, 탈퇴 동작, 14세 확인, DB 백업 복원 테스트를 한 번씩 확인한다.
 - **지인 테스트**: 지인 100명에게 2주 동안 써보게 하고, 끝나면 짧은 설문으로 이유를 묻는다. D7 리텐션을 재려면 가입 후 13일이 지나야 하므로 첫 주 안에 가입을 몰아서 받는다. PRD의 첫 관문(D7 리텐션 25%)을 넘으면 베타 기능으로 넘어간다.
 
@@ -142,8 +142,8 @@ Claude Code에는 한 번에 큰 기능을 맡기지 말고, 이 문서의 표 �
 | --- | --- |
 | 기술 검증 | "Blender MCP로 로우폴리 싱글 침대를 만들어 assets/export/bed.glb로 내보내고, gltf-transform으로 압축해 크기를 알려줘" |
 | 기술 검증 | "Three.js로 8×8칸 방을 만들고, 가구를 0.5m 그리드에 스냅해서 드래그하게 해줘. 화면 구석에 fps와 드로우콜을 표시해줘" |
-| 설계 | "docs/api.md의 명세대로 JPA 엔티티와 MySQL 스키마를 제안해줘. 아직 코드는 만들지 마" |
-| 개발 환경 | "backend와 mysql만 있는 docker-compose.yml을 만들고, .env에서 비밀번호를 읽게 해줘" |
+| 설계 | "docs/api.md의 명세대로 JPA 엔티티와 PostgreSQL 스키마를 제안해줘. 아직 코드는 만들지 마" |
+| 개발 환경 | "backend와 postgres만 있는 docker-compose.yml을 만들고, .env에서 비밀번호를 읽게 해줘" |
 | 구현 | "방명록 작성 API를 만들어줘. 로그인 필수, 500자 제한, 테스트 코드 포함" |
 | 배포 | "Lightsail 서버에 docker compose로 배포하는 순서를 단계별로 알려주고, 백업 스크립트를 만들어줘" |
 
@@ -156,5 +156,5 @@ Claude Code에는 한 번에 큰 기능을 맡기지 말고, 이 문서의 표 �
 - [ ] 가구 1개당 제작 시간 재기 (2시간 이하인지)
 - [ ] Three.js(또는 R3F)로 8×8칸 방에 가구 3종을 30개까지 복제 배치해 보고 fps와 드로우콜 확인하기
 - [ ] 프론트엔드를 Three.js 직접 사용과 R3F 중 무엇으로 갈지 정하기
-- [ ] Spring Boot 3.x 프로젝트 만들고 Google 로그인 한 번 성공시키기
+- [ ] Spring Boot 프로젝트 만들고 Google 로그인 한 번 성공시키기
 - [ ] 기술 검증 결과를 보고 PRD 범위를 줄일지 결정하기

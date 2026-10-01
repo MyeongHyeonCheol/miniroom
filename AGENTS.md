@@ -23,14 +23,16 @@
 | 프론트 스타일 | Tailwind CSS v4 (레이아웃용). 색, 글자, 둥글기, 그림자는 design.md 토큰만 `@theme`에 둔다. 컴포넌트 라이브러리(shadcn 등)는 쓰지 않는다 |
 | 프론트 상태 | 클라이언트 상태(방 배치, UI)는 zustand, 서버 상태(방, 방명록 API)는 TanStack Query |
 | 프론트 테스트 | E2E와 순수 로직 테스트는 Playwright (`frontend/e2e/`, `npm run test:e2e`) |
-| 백엔드 | Spring Boot 3.x, Java 17+, Gradle, Spring Security + Google OAuth2, JPA |
-| DB | MySQL 8 (방 배치는 JSON 컬럼) |
-| 실행 | Docker Compose (`backend`, `mysql`) |
+| 백엔드 | Spring Boot 4.x, Java 25, Gradle, Spring Security + Google OAuth2, JPA, Flyway |
+| DB | PostgreSQL 17 (방 배치는 `jsonb` 컬럼) |
+| 실행 | Docker Compose (`backend`, `postgres`). 백엔드도 컨테이너 안에서 빌드하므로 로컬 JDK가 없어도 된다 |
 | 3D 에셋 | Blender (Python 스크립트로 생성) → glb → gltf-transform 압축 |
 
 MVP에서는 Redis, WebSocket, MongoDB, S3를 넣지 않는다. 필요해 보이면 추가하기 전에 먼저 제안한다.
 
 프론트 명령(`frontend/`에서): `npm run dev`(개발 서버, 같은 네트워크에서 접속 가능), `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run measure`(개발 서버를 띄운 상태에서 fps, 드로우콜, 로딩 시간 측정. 두 번째 인자로 주소 뒤에 붙일 값, 예: `npm run measure -- http://localhost:5173 stress=30`), `npm run fonts:subset`(`assets/fonts/` 원본과 Gaegu를 글자 범위별 조각으로 나눠 `public/fonts/`와 `src/styles/fonts.css`를 다시 만듦).
+
+백엔드 명령(저장소 루트에서): `docker compose up -d --build`(빌드, 테스트, 실행), `docker compose logs -f backend`, `docker compose down`(데이터는 볼륨 `pgdata`에 남음). 테스트만: `docker build --target build backend`.
 
 ## 폴더 구조
 
@@ -38,7 +40,7 @@ MVP에서는 Redis, WebSocket, MongoDB, S3를 넣지 않는다. 필요해 보이
 miniroom/
 ├── AGENTS.md            # 에이전트 규칙 (이 파일, 규칙의 원본)
 ├── CLAUDE.md            # AGENTS.md를 불러오기만 함. 내용을 추가하지 않는다
-├── docker-compose.yml   # backend + mysql
+├── docker-compose.yml   # backend + postgres
 ├── frontend/            # Vite + React + Three.js
 │   └── public/models/   # 압축된 glb
 ├── backend/             # Spring Boot

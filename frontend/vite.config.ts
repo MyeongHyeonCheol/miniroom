@@ -9,5 +9,13 @@ export default defineConfig({
     // Reachable from other devices on the LAN (integrated-GPU laptop fps check)
     host: true,
     port: 5173,
+    // Backend (docker compose) behind the same origin: no CORS, session cookie just works.
+    // xfwd sends X-Forwarded-Host so Spring builds the OAuth redirect URL with :5173.
+    proxy: Object.fromEntries(
+      ['/api', '/oauth2', '/login', '/logout', '/v3/api-docs', '/swagger-ui'].map((path) => [
+        path,
+        { target: 'http://localhost:8080', xfwd: true },
+      ]),
+    ),
   },
 })

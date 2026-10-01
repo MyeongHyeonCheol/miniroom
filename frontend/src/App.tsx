@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useEffect } from 'react'
+import { AuthBadge } from './auth/AuthBadge'
 import { PerfProbe } from './debug/PerfProbe'
 import { StatsCard } from './debug/StatsCard'
 import { FurnitureLayer } from './furniture/Furniture'
@@ -106,9 +107,10 @@ export default function App() {
         <PerfProbe />
       </Canvas>
 
-      <header className="pointer-events-none absolute top-6 left-6">
-        <h1 className="text-title">미니룸</h1>
-        <p className="text-caption text-ink-soft">1단계 기술 검증</p>
+      <header className="absolute top-6 left-6">
+        <h1 className="pointer-events-none text-title">미니룸</h1>
+        <p className="pointer-events-none text-caption text-ink-soft">1단계 기술 검증</p>
+        <AuthBadge />
       </header>
       <Controls className="absolute bottom-6 left-6" />
       <FurniturePanel className="absolute right-6 bottom-6" />
