@@ -1,7 +1,7 @@
 import { Button } from '../ui/Button'
 import { useLogout, useMe } from './useMe'
 
-/** Stage-1 login check: shows the Google email after login. Stage 3 shows the nickname instead (AGENTS.md). */
+/** Login state. Before signup the nickname is still empty; the signup form over the room comes with week 2. */
 export function AuthBadge() {
   const me = useMe()
   const logout = useLogout()
@@ -15,7 +15,7 @@ export function AuthBadge() {
   }
   return (
     <div className="mt-3 flex items-center gap-2">
-      <span className="text-small">{me.email}</span>
+      <span className="text-small">{me.nickname ?? '가입 전'}</span>
       <Button size="sm" variant="ghost" onClick={logout}>로그아웃</Button>
     </div>
   )

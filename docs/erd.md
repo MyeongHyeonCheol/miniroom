@@ -4,13 +4,13 @@
 
 - 상태: 초안 (2026-10-01).
 - DB: PostgreSQL 17. 시각은 모두 `timestamptz`, 방문 날짜는 앱에서 KST로 계산한 `date`.
-- 이미 있는 테이블: `users`(V1, 일부 열), `spring_session`, `spring_session_attributes`(V2).
+- 이미 있는 테이블: `users`(V1, V3), `spring_session`, `spring_session_attributes`(V2), `rooms`(V4). V3, V4는 2026-10-02.
 
 ## 관계
 
 ```mermaid
 erDiagram
-  users ||--o| rooms : "가입하면 1개"
+  users ||--|| rooms : "첫 로그인 때 1개"
   users ||--o{ guestbook_entries : "씀"
   users ||--o{ room_daily_visits : "방문함"
   rooms ||--o{ guestbook_entries : "받음"
@@ -94,7 +94,7 @@ erDiagram
 | `expansion_tickets` | `smallint` | not null default 0, `>= 0` | MVP 확장권 개수. 지급 방식은 방명록이 생긴 뒤 정한다(열린 질문 1) |
 | `created_at`, `last_login_at` | `timestamptz` | not null | V1 |
 
-- 가입 완료 확인: `check ((nickname is null) = (terms_agreed_at is null))` 정도로 둘을 묶는다(동의 없이 닉네임만 있는 상태를 막음).
+- 가입 완료 확인: `users_signup_complete` 제약이 `nickname`과 동의 시각 3개가 모두 있거나 모두 없게 묶는다(동의 없이 닉네임만 있는 상태를 막음, V3).
 - 탈퇴는 행을 지운다(소프트 삭제 안 함). 아래 외래 키의 `on delete`가 나머지를 정리한다.
 
 ### rooms
@@ -174,8 +174,8 @@ erDiagram
 | --- | --- |
 | V1 | `users` 기본(있음) |
 | V2 | Spring Session(있음) |
-| V3 | `users`에 닉네임, 동의 시각, `guestbook_checked_at`, `visitor_key`, `expansion_tickets` |
-| V4 | `rooms` |
+| V3 | `users`에 닉네임, 동의 시각, `guestbook_checked_at`, `visitor_key`, `expansion_tickets`(있음) |
+| V4 | `rooms`, 이전 계정에 방 채워 넣기(있음) |
 | V5 | `guestbook_entries` |
 | V6 | `room_daily_visits` |
 | V7 | `room_expansions`, `events` |
@@ -186,7 +186,7 @@ erDiagram
 - `rooms`에 `size`를 더했다. 배치 JSON에 `backdrop`이 들어간다.
 - `users`에 `privacy_agreed_at`(약관과 개인정보처리방침 동의를 따로), `expansion_tickets`를 더했다.
 - 방명록 본문은 500자에서 200자로(API 명세 열린 질문 4).
-- 방 자동 생성 시점은 첫 로그인이 아니라 첫 가입 완료(API 명세).
+- 방 자동 생성 시점: 10-01에 "첫 가입 완료"로 바꿨다가 10-02에 **첫 로그인**으로 되돌렸다(사용자 결정: 로그인하면 바로 내 방, 가입 창은 그 위에). V4는 그 전에 로그인한 계정에도 기본 배치로 방을 만들어 넣는다.
 
 ## 열린 질문
 

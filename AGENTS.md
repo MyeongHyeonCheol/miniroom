@@ -14,7 +14,7 @@
 
 ## 현재 단계
 
-**2단계 설계** 중이다(2026-10-01부터). 1단계 기술 검증은 끝났다: 에셋, 3D 방, 가구 배치, 저장과 복원, 로그인 모두 기준 통과, 다른 노트북에서도 같은 성능(사용자 확인). 화면 흐름(`docs/screens.md`), API 명세(`docs/api.md`), ERD(`docs/erd.md`) 초안이 있고, 다음은 3단계 첫 배포(워킹 스켈레톤: 빈 화면 + Google 로그인 + `/api/me`를 실제 도메인에)다.
+**4단계 MVP 구현 1주차(백엔드 기반)** 중이다(2026-10-02부터). 1단계 기술 검증, 2단계 설계(`docs/screens.md`, `docs/api.md`, `docs/erd.md`), 3단계 로컬 운영 리허설(`docs/deploy.md`, Caddy + `prod` 프로필로 로그인과 재시작 후 유지 확인)은 끝났다. 1주차에서 오류 형식, `GET`/`PATCH /api/me`, 첫 로그인 때 방 생성까지 했고, 다음은 방 조회와 저장 API(배치 검증)다. 실제 배포는 5단계에서 4단계 결과를 보고 정한다(2026-10-02 결정).
 
 1단계 프론트 코드(`frontend/src`)는 버려도 되는 검증 코드였지만, 로그인·세션(백엔드)과 방 렌더링·배치 로직은 4단계에서 정리해 이어 쓴다. 정리 없이 기능을 덧붙이지 않는다.
 
@@ -39,6 +39,8 @@ MVP에서는 Redis, WebSocket, MongoDB, S3를 넣지 않는다. 필요해 보이
 
 백엔드 명령(저장소 루트에서): `docker compose up -d --build`(빌드, 테스트, 실행), `docker compose logs -f backend`, `docker compose down`(데이터는 볼륨 `pgdata`에 남음). 단위 테스트만: `docker build --target build backend`. 통합 테스트(실제 PostgreSQL의 `it` 스키마): `docker compose run --rm backend-test`. Git Bash에서 `/tmp` 같은 경로를 인자로 넘길 때는 `MSYS_NO_PATHCONV=1`을 앞에 붙인다(경로가 Windows 경로로 바뀜).
 
+운영 리허설(`docs/deploy.md`): `frontend/`에서 `npm run build` 후 루트에서 `docker compose -f compose.prod.yml up -d --build`, `https://localhost`로 접속. 개발 구성과 따로 돌고 DB도 따로다.
+
 ## 폴더 구조
 
 ```
@@ -46,6 +48,8 @@ miniroom/
 ├── AGENTS.md            # 에이전트 규칙 (이 파일, 규칙의 원본)
 ├── CLAUDE.md            # AGENTS.md를 불러오기만 함. 내용을 추가하지 않는다
 ├── docker-compose.yml   # backend + postgres
+├── compose.prod.yml     # 운영 구성: Caddy + backend(prod) + postgres
+├── deploy/              # Caddyfile
 ├── frontend/            # Vite + React + Three.js
 │   └── public/models/   # 압축된 glb
 ├── backend/             # Spring Boot

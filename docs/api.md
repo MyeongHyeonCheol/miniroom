@@ -3,7 +3,7 @@
 2단계 설계의 두 번째 문서다. `docs/screens.md`(화면 흐름)가 요구하는 데이터에서 나왔고, 개발 프로세스 문서의 "API 명세 초안" 표를 대신한다. 구현하면서 springdoc(Swagger, `/swagger-ui.html`)으로 옮기고, 이 문서와 Swagger가 다르면 Swagger에 맞춰 이 문서를 고친다.
 
 - 상태: 초안 (2026-10-01). 열린 질문은 추천안으로 결정. 방 크기는 방마다 다르다(기본 12×12, 최대 24×24). 배치 검증은 그 방의 크기로 한다.
-- 이미 구현된 것: `GET /api/me`(1단계 형태), 로그인, 로그아웃, 세션. 표에 **구현됨**으로 적었다.
+- 이미 구현된 것: 로그인, 로그아웃, 세션, 오류 형식, `GET /api/me`, `PATCH /api/me`, 첫 로그인 때 방 생성(2026-10-02). 표에 **구현됨**으로 적었다.
 
 ## 공통 규칙
 
@@ -35,7 +35,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | 상태 | 쓰는 때 | 대표 `code` |
 | --- | --- | --- |
 | 400 | 형식이 틀림(JSON 아님, 필드 타입) | `BAD_REQUEST` |
-| 401 | 로그인 필요, 세션 만료 | `UNAUTHORIZED`, `REPLACED`(다른 곳에서 로그인. 본문은 지금 `{"reason":"replaced"}`, 이 형식으로 맞춘다) |
+| 401 | 로그인 필요, 세션 만료 | `UNAUTHORIZED`, `REPLACED`(다른 곳에서 로그인) |
 | 403 | 권한 없음, 가입 미완료, CSRF | `FORBIDDEN`, `SIGNUP_REQUIRED`, `CSRF` |
 | 404 | 없는 방, 없는 글 | `ROOM_NOT_FOUND`, `ENTRY_NOT_FOUND` |
 | 409 | 이미 가입함(약관 재동의 시도 등) | `ALREADY_SIGNED_UP` |
@@ -48,8 +48,8 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | --- | --- | --- | --- | --- |
 | GET | `/oauth2/authorization/google` | 아니요 | Google 로그인 시작(Spring Security) | 구현됨 |
 | POST | `/logout` | 예 | 로그아웃, `204` | 구현됨 |
-| GET | `/api/me` | 예 | 내 정보 | 1단계 형태 구현됨, 바뀜 |
-| PATCH | `/api/me` | 예 | 첫 가입(닉네임 + 14세 + 약관), 이후 닉네임 변경 | |
+| GET | `/api/me` | 예 | 내 정보 | 구현됨 |
+| PATCH | `/api/me` | 예 | 첫 가입(닉네임 + 14세 + 약관), 이후 닉네임 변경 | 구현됨 |
 | DELETE | `/api/me` | 예 | 탈퇴 | |
 | GET | `/api/rooms/{slug}` | 예(가입) | 방 보기 (로그인 필수(2026-10-01 사용자 결정)) | |
 | PUT | `/api/rooms/me/layout` | 예(가입) | 내 방 바닥, 벽지, 배치 저장 | |
@@ -76,7 +76,9 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 }
 ```
 
-- 가입 전: `{ "nickname": null, "needsSignup": true, "mySlug": null, "newGuestbookCount": 0 }`.
+- 가입 전: `{ "nickname": null, "needsSignup": true, "mySlug": "k3x9m2qa", "newGuestbookCount": 0 }`. 방은 첫 로그인 때 만들어지므로 가입 전에도 `mySlug`가 있다. 프론트는 `needsSignup`이면 내 방 위에 가입 창을 띄운다.
+- 세션은 있는데 계정 행이 없으면(탈퇴 등) `401 UNAUTHORIZED`.
+- `newGuestbookCount`는 방명록이 생길 때까지(4주차) 늘 0이다.
 - **초안에서 바뀐 점**: 1단계의 `{ "email" }`을 없앤다. 공개 화면에 이메일을 쓰지 않으므로 응답에도 두지 않는다(로그인 확인용이었음). 프론트의 이메일 표시는 닉네임으로 바꾼다.
 
 ### `PATCH /api/me`
@@ -95,8 +97,10 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | 첫 가입인데 `ageConfirmed`, `termsAgreed`, `privacyAgreed` 중 하나라도 `true`가 아님 | `CONSENT_REQUIRED` |
 | 가입한 뒤 동의 항목을 다시 보냄 | 무시(닉네임만 반영) |
 
-- 첫 가입이 성공하면 같은 트랜잭션에서 **내 방을 만든다**(새 slug, 기본 가구 몇 개 배치).
-- **초안에서 바뀐 점**: 초안은 "첫 로그인 때 내 방 자동 생성"이었다. 14세 미만은 가입할 수 없으므로 가입을 마친 순간에 만든다. 로그인만 하고 떠난 계정에 빈 방이 쌓이지 않는다.
+- **내 방은 첫 로그인 때 만든다**(2026-10-02 사용자 결정: 로그인하면 바로 내 방이 보이고, 가입 창은 그 위에 뜬다). 로그인 기록과 같은 트랜잭션에서 새 slug와 기본 배치(침대, 컴퓨터 책상, 화분. 러그는 모델이 생기면)로 만든다. slug가 겹치면 5번까지 다시 뽑는다.
+- 그래서 가입하지 않고 떠난 계정에도 방이 남는다. 14세 미만이라고 답하면 프론트가 `DELETE /api/me`로 계정과 방을 지운다. 오래 가입하지 않은 계정 정리는 개선 목록에 있다.
+- 닉네임의 "글자"는 코드 포인트 기준이다(이모지 하나 = 1자, PostgreSQL `varchar(12)`와 같음). 보이지 않는 글자(제어·서식 문자, 한글 채움 문자 `U+3164` 등)도 거절한다.
+- **바뀐 점**: 처음 초안은 "첫 로그인 때 생성", 10-01 수정안은 "가입 완료 때 생성"이었고, 10-02에 다시 첫 로그인으로 정했다.
 - 동의 시각은 `age_confirmed_at`, `terms_agreed_at`, `privacy_agreed_at`으로 기록한다(ERD).
 
 ### `DELETE /api/me`
@@ -250,7 +254,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 ## 구현 순서 제안 (4단계 1주차)
 
 1. 오류 형식(`ProblemDetail` + `code`)과 공통 예외 처리
-2. `PATCH /api/me` 첫 가입 + 방 자동 생성 + `GET /api/me` 새 모양(프론트 이메일 표시를 닉네임으로)
+2. `PATCH /api/me` 첫 가입 + 첫 로그인 때 방 생성 + `GET /api/me` 새 모양(프론트 이메일 표시를 닉네임으로). 1~2번 구현됨(2026-10-02)
 3. `GET /api/rooms/{slug}`, `PUT /api/rooms/me/layout`(검증은 가구 목록 JSON을 백엔드 리소스로 공유)
 4. 방문, 방명록, 지표, 공유 링크(4주차)
 

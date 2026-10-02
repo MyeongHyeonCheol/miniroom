@@ -1,16 +1,17 @@
 package com.miniroom.auth;
 
+import com.miniroom.common.Problems;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Ends a session that a newer login replaced (see {@link SessionLimiter}). API calls get
- * 401 {"reason":"replaced"} so the frontend can say why; other paths continue logged out.
+ * 401 with code REPLACED so the frontend can say why; other paths continue logged out.
  * Runs before the security context is loaded, so the replaced login is never used.
  */
 public class ReplacedSessionFilter extends OncePerRequestFilter {
@@ -25,9 +26,7 @@ public class ReplacedSessionFilter extends OncePerRequestFilter {
         } else if (replacedBy != null) {
             session.invalidate();
             if (request.getRequestURI().startsWith("/api/")) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().write("{\"reason\":\"replaced\"}");
+                Problems.write(response, HttpStatus.UNAUTHORIZED, "REPLACED", "logged in somewhere else");
                 return;
             }
         }

@@ -3,12 +3,12 @@ package com.miniroom.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.miniroom.IntegrationTest;
+import com.miniroom.user.UserService;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -41,9 +41,16 @@ class SingleLoginIT {
     @Autowired
     SessionLimiter limiter;
 
+    @Autowired
+    UserService users;
+
     @BeforeEach
     void clean() {
         jdbc.update("delete from spring_session");
+        jdbc.update("delete from users");
+        // /api/me reads the account row and its room, which the real login makes
+        users.recordLogin("s1", "s1@example.com");
+        users.recordLogin("s2", "s2@example.com");
     }
 
     /** A stored session logged in as the given Google account, as the real login flow leaves it. */
@@ -75,7 +82,7 @@ class SingleLoginIT {
 
         mvc.perform(get("/api/me").cookie(cookie(current)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("s1@example.com"));
+                .andExpect(jsonPath("$.mySlug").isNotEmpty());
     }
 
     /**
@@ -107,7 +114,7 @@ class SingleLoginIT {
 
         mvc.perform(get("/api/me").cookie(cookie(old)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().json("{\"reason\":\"replaced\"}"));
+                .andExpect(jsonPath("$.code").value("REPLACED"));
         assertThat(sessions.findById(old)).isNull();
     }
 

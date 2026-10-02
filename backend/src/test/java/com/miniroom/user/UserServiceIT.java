@@ -1,8 +1,10 @@
 package com.miniroom.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.miniroom.IntegrationTest;
+import com.miniroom.common.ApiException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -25,11 +27,20 @@ class UserServiceIT {
 
     @BeforeEach
     void clean() {
-        jdbc.update("delete from users");
+        jdbc.update("delete from users"); // rooms go with them (on delete cascade)
     }
 
     private int rows(String sub) {
         return jdbc.queryForObject("select count(*) from users where google_sub = ?", Integer.class, sub);
+    }
+
+    private int rooms(String sub) {
+        return jdbc.queryForObject(
+                "select count(*) from rooms r join users u on u.id = r.owner_id where u.google_sub = ?", Integer.class, sub);
+    }
+
+    private static UserService.Update signup(String nickname) {
+        return new UserService.Update(nickname, true, true, true);
     }
 
     @Test
@@ -54,7 +65,7 @@ class UserServiceIT {
     }
 
     @Test
-    void concurrentFirstLoginsMakeOneRow() throws Exception {
+    void concurrentFirstLoginsMakeOneRowAndOneRoom() throws Exception {
         int n = 10;
         ExecutorService pool = Executors.newFixedThreadPool(n);
         CountDownLatch start = new CountDownLatch(1);
@@ -71,5 +82,80 @@ class UserServiceIT {
         }
         pool.shutdown();
         assertThat(rows("sub-race")).isEqualTo(1);
+        assertThat(rooms("sub-race")).isEqualTo(1);
+    }
+
+    @Test
+    void firstLoginMakesTheRoomWithDefaultLayoutBeforeSignup() {
+        users.recordLogin("sub-1", "a@example.com");
+
+        UserService.Me me = users.me("sub-1");
+
+        assertThat(me.user().isSignedUp()).isFalse();
+        assertThat(me.room().getSlug()).matches("[a-z0-9]{8}");
+        assertThat(me.room().getSize()).isEqualTo(12);
+        assertThat(me.room().getLayout()).contains("\"bed\"").contains("\"computer_desk\"").contains("\"plant_pot\"");
+    }
+
+    @Test
+    void repeatLoginKeepsTheSameRoom() {
+        users.recordLogin("sub-1", "a@example.com");
+        String slug = users.me("sub-1").room().getSlug();
+
+        users.recordLogin("sub-1", "a@example.com");
+
+        assertThat(users.me("sub-1").room().getSlug()).isEqualTo(slug);
+        assertThat(rooms("sub-1")).isEqualTo(1);
+    }
+
+    @Test
+    void signupStoresTrimmedNicknameAndAllConsentTimes() {
+        users.recordLogin("sub-1", "a@example.com");
+
+        users.update("sub-1", signup("  명현 "));
+
+        User user = users.me("sub-1").user();
+        assertThat(user.getNickname()).isEqualTo("명현");
+        assertThat(user.getAgeConfirmedAt()).isNotNull();
+        assertThat(user.getTermsAgreedAt()).isNotNull();
+        assertThat(user.getPrivacyAgreedAt()).isNotNull();
+    }
+
+    @Test
+    void signupWithoutEveryConsentIsRejectedAndSavesNothing() {
+        users.recordLogin("sub-1", "a@example.com");
+
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, true, false)))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("CONSENT_REQUIRED"));
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", null, true, true)))
+                .isInstanceOf(ApiException.class);
+        assertThat(users.me("sub-1").user().isSignedUp()).isFalse();
+    }
+
+    @Test
+    void afterSignupOnlyTheNicknameChangesAndConsentsAreIgnored() {
+        users.recordLogin("sub-1", "a@example.com");
+        users.update("sub-1", signup("명현"));
+        var agreedAt = users.me("sub-1").user().getTermsAgreedAt();
+
+        users.update("sub-1", new UserService.Update("새닉네임", false, false, false));
+
+        User user = users.me("sub-1").user();
+        assertThat(user.getNickname()).isEqualTo("새닉네임");
+        assertThat(user.getTermsAgreedAt()).isEqualTo(agreedAt);
+    }
+
+    @Test
+    void databaseRefusesANicknameWithoutConsent() {
+        users.recordLogin("sub-1", "a@example.com");
+
+        assertThatThrownBy(() -> jdbc.update("update users set nickname = '몰래' where google_sub = 'sub-1'"))
+                .hasMessageContaining("users_signup_complete");
+    }
+
+    @Test
+    void unknownAccountIs401() {
+        assertThatThrownBy(() -> users.me("nobody"))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("UNAUTHORIZED"));
     }
 }
