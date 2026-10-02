@@ -4,13 +4,15 @@
 
 - 상태: 초안 (2026-10-01).
 - DB: PostgreSQL 17. 시각은 모두 `timestamptz`, 방문 날짜는 앱에서 KST로 계산한 `date`.
-- 이미 있는 테이블: `users`(V1, V3), `spring_session`, `spring_session_attributes`(V2), `rooms`(V4), `events`(V5). V3~V5는 2026-10-02.
+- 이미 있는 테이블: `users`(V1, V3), `spring_session`, `spring_session_attributes`(V2), `rooms`(V4), `events`(V5), `terms`, `terms_agreements`(V6). V3~V6은 2026-10-02.
 
 ## 관계
 
 ```mermaid
 erDiagram
   users ||--|| rooms : "첫 로그인 때 1개"
+  users ||--o{ terms_agreements : "가입 때 동의"
+  terms ||--o{ terms_agreements : "버전마다"
   users ||--o{ guestbook_entries : "씀"
   users ||--o{ room_daily_visits : "방문함"
   rooms ||--o{ guestbook_entries : "받음"
@@ -25,8 +27,6 @@ erDiagram
     varchar email "공개 안 함"
     varchar nickname "null이면 가입 전"
     timestamptz age_confirmed_at
-    timestamptz terms_agreed_at
-    timestamptz privacy_agreed_at
     timestamptz guestbook_checked_at
     varchar visitor_key "로그인 전 쿠키, 지표용"
     smallint expansion_tickets "MVP 확장권"
@@ -88,14 +88,31 @@ erDiagram
 | `google_sub` | `varchar(64)` | not null, unique | Google 계정 고유 ID. 로그인 때 upsert(V1) |
 | `email` | `varchar(320)` | not null | 응답에 넣지 않는다. 운영 연락용 |
 | `nickname` | `varchar(12)` | | 2~12자(앱에서 검사). `null`이면 가입 전 |
-| `age_confirmed_at`, `terms_agreed_at`, `privacy_agreed_at` | `timestamptz` | | 첫 가입 때 같이 채운다. 세 값과 `nickname`이 함께 있어야 가입 완료 |
+| `age_confirmed_at` | `timestamptz` | | 만 14세 이상 확인 시각. `nickname`과 함께 있어야 가입 완료. 약관 동의는 `terms_agreements`(V6에서 `terms_agreed_at`, `privacy_agreed_at`을 옮김) |
 | `guestbook_checked_at` | `timestamptz` | | 내 방 방명록 패널을 연 시각. 새 글 개수 기준 |
 | `visitor_key` | `varchar(40)` | | 로그인 전 쿠키(`mr_vk`) 값. `share_open`, `mobile_notice` 이벤트와 이어 초대 전환율을 센다 |
 | `expansion_tickets` | `smallint` | not null default 0, `>= 0` | MVP 확장권 개수. 지급 방식은 방명록이 생긴 뒤 정한다(열린 질문 1) |
 | `created_at`, `last_login_at` | `timestamptz` | not null | V1 |
 
-- 가입 완료 확인: `users_signup_complete` 제약이 `nickname`과 동의 시각 3개가 모두 있거나 모두 없게 묶는다(동의 없이 닉네임만 있는 상태를 막음, V3).
+- 가입 완료 확인: `users_signup_complete` 제약이 `nickname`과 `age_confirmed_at`을 함께 있거나 함께 없게 묶는다(14세 확인 없이 닉네임만 있는 상태를 막음, V3, V6에서 고침). 약관 동의가 빠지지 않는 것은 앱이 같은 트랜잭션에서 보장한다.
 - 탈퇴는 행을 지운다(소프트 삭제 안 함). 아래 외래 키의 `on delete`가 나머지를 정리한다.
+
+### terms, terms_agreements (V6)
+
+약관 본문과 동의 이력을 DB에 남긴다(2026-10-02 사용자 결정). 약관은 가입 창 안에서 보여 준다.
+
+| 열 | 타입 | 제약 | 설명 |
+| --- | --- | --- | --- |
+| `terms.id` | `bigint` identity | PK | `GET /api/terms`의 `id`, 가입 요청의 `agreedTermsIds` |
+| `terms.kind` | `varchar(16)` | not null, `in ('terms', 'privacy')` | 이용약관, 개인정보처리방침 |
+| `terms.version` | `int` | not null, `>= 1`, `unique (kind, version)` | 바꾸면 새 버전. 동의받은 버전은 고치지 않는다 |
+| `terms.title`, `terms.body` | `varchar(100)`, `text` | not null | 일반 텍스트. 원본은 `backend/src/main/resources/terms/`, 서버 시작 때 넣음(`TermsSeeder`) |
+| `terms.effective_at` | `timestamptz` | not null | 시행 시각. 지난 것 중 가장 새 버전이 "지금 약관" |
+| `terms_agreements.user_id` | `bigint` | not null, FK → `users` `on delete cascade` | 탈퇴하면 이력도 지운다(개인정보처리방침 3) |
+| `terms_agreements.terms_id` | `bigint` | not null, FK → `terms` | `unique (user_id, terms_id)` |
+| `terms_agreements.agreed_at` | `timestamptz` | not null | |
+
+- 가입하면 그때 시행 중인 버전마다 한 줄. 약관이 바뀌면 새 버전에 다시 동의받는다(재동의 화면은 개선 목록).
 
 ### rooms
 
@@ -180,9 +197,10 @@ erDiagram
 | V3 | `users`에 닉네임, 동의 시각, `guestbook_checked_at`, `visitor_key`, `expansion_tickets`(있음) |
 | V4 | `rooms`, 이전 계정에 방 채워 넣기(있음) |
 | V5 | `events`(있음, 2026-10-02. 1주차 "엔티티(events 포함)"라 앞당김) |
-| V6 | `guestbook_entries` |
-| V7 | `room_daily_visits` |
-| V8 | `room_expansions` |
+| V6 | `terms`, `terms_agreements`, `users`의 약관 동의 시각 두 열을 이력으로 옮김(있음, 2026-10-02) |
+| V7 | `guestbook_entries` |
+| V8 | `room_daily_visits` |
+| V9 | `room_expansions` |
 
 ## 개발 프로세스 문서의 초안에서 바뀐 점
 

@@ -7,10 +7,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.miniroom.IntegrationTest;
+import com.miniroom.Signups;
+import com.miniroom.terms.TermsService;
 import com.miniroom.user.UserService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,9 @@ class EventLogIT {
 
     @Autowired
     UserService users;
+
+    @Autowired
+    TermsService terms;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -75,8 +81,8 @@ class EventLogIT {
 
     @Test
     void firstSignupRecordsOneSignupWithRoomAndDevice() {
-        users.update("sub-1", new UserService.Update("명현", true, true, true), IPHONE);
-        users.update("sub-1", new UserService.Update("새이름", null, null, null), IPHONE);  // rename: no event
+        users.update("sub-1", Signups.signup(terms, "명현"), IPHONE);
+        users.update("sub-1", new UserService.Update("새이름", null, null), IPHONE);  // rename: no event
 
         Map<String, Object> row = jdbc.queryForMap("select user_id, room_id, device from events where type = 'signup'");
         assertThat(count("signup")).isEqualTo(1);
@@ -87,14 +93,14 @@ class EventLogIT {
 
     @Test
     void aRejectedSignupRecordsNothing() {
-        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, false, true), null));
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, List.of()), null));
 
         assertThat(count("signup")).isZero();
     }
 
     @Test
     void deletingTheAccountKeepsTheEventWithoutTheUser() {
-        users.update("sub-1", new UserService.Update("명현", true, true, true), null);
+        users.update("sub-1", Signups.signup(terms, "명현"), null);
 
         jdbc.update("delete from users where id = ?", userId);
 

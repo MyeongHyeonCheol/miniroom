@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.miniroom.IntegrationTest;
+import com.miniroom.Signups;
 import com.miniroom.common.ApiException;
+import com.miniroom.terms.TermsService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -23,6 +25,9 @@ class UserServiceIT {
     UserService users;
 
     @Autowired
+    TermsService terms;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @BeforeEach
@@ -39,8 +44,17 @@ class UserServiceIT {
                 "select count(*) from rooms r join users u on u.id = r.owner_id where u.google_sub = ?", Integer.class, sub);
     }
 
-    private static UserService.Update signup(String nickname) {
-        return new UserService.Update(nickname, true, true, true);
+    private UserService.Update signup(String nickname) {
+        return Signups.signup(terms, nickname);
+    }
+
+    private List<Long> currentTermsIds() {
+        return terms.current().stream().map(TermsService.Terms::id).toList();
+    }
+
+    private int agreements(String sub) {
+        return jdbc.queryForObject("select count(*) from terms_agreements a join users u on u.id = a.user_id "
+                + "where u.google_sub = ?", Integer.class, sub);
     }
 
     @Test
@@ -109,7 +123,7 @@ class UserServiceIT {
     }
 
     @Test
-    void signupStoresTrimmedNicknameAndAllConsentTimes() {
+    void signupStoresTrimmedNicknameAgeAndOneAgreementPerTermsVersion() {
         users.recordLogin("sub-1", "a@example.com");
 
         users.update("sub-1", signup("  명현 "), null);
@@ -117,32 +131,70 @@ class UserServiceIT {
         User user = users.me("sub-1").user();
         assertThat(user.getNickname()).isEqualTo("명현");
         assertThat(user.getAgeConfirmedAt()).isNotNull();
-        assertThat(user.getTermsAgreedAt()).isNotNull();
-        assertThat(user.getPrivacyAgreedAt()).isNotNull();
+        assertThat(currentTermsIds()).hasSize(2); // 이용약관 + 개인정보처리방침
+        assertThat(agreements("sub-1")).isEqualTo(2);
     }
 
     @Test
     void signupWithoutEveryConsentIsRejectedAndSavesNothing() {
         users.recordLogin("sub-1", "a@example.com");
+        List<Long> onlyOne = currentTermsIds().subList(0, 1);
 
-        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, true, false), null))
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, onlyOne), null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("CONSENT_REQUIRED"));
-        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", null, true, true), null))
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, null), null))
                 .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", null, currentTermsIds()), null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("CONSENT_REQUIRED"));
         assertThat(users.me("sub-1").user().isSignedUp()).isFalse();
+        assertThat(agreements("sub-1")).isZero();
+    }
+
+    @Test
+    void anOldTermsVersionIsNotEnough() {
+        users.recordLogin("sub-1", "a@example.com");
+        jdbc.update("insert into terms (kind, version, title, body, effective_at) "
+                + "select kind, version + 1, title, body || ' (개정)', now() from terms where kind = 'terms' and version = 1");
+        try {
+            List<Long> stale = jdbc.queryForList("select id from terms where version = 1", Long.class);
+
+            assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, stale), null))
+                    .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("CONSENT_REQUIRED"));
+            users.update("sub-1", signup("명현"), null); // v2 of 이용약관 + v1 of 개인정보처리방침
+
+            assertThat(jdbc.queryForObject("select max(t.version) from terms_agreements a join terms t on t.id = a.terms_id "
+                    + "where t.kind = 'terms'", Integer.class)).isEqualTo(2);
+        } finally {
+            jdbc.update("delete from users"); // agreements first, then the extra version
+            jdbc.update("delete from terms where version = 2");
+        }
     }
 
     @Test
     void afterSignupOnlyTheNicknameChangesAndConsentsAreIgnored() {
         users.recordLogin("sub-1", "a@example.com");
         users.update("sub-1", signup("명현"), null);
-        var agreedAt = users.me("sub-1").user().getTermsAgreedAt();
+        var confirmedAt = users.me("sub-1").user().getAgeConfirmedAt();
 
-        users.update("sub-1", new UserService.Update("새닉네임", false, false, false), null);
+        users.update("sub-1", new UserService.Update("새닉네임", false, List.of()), null);
 
         User user = users.me("sub-1").user();
         assertThat(user.getNickname()).isEqualTo("새닉네임");
-        assertThat(user.getTermsAgreedAt()).isEqualTo(agreedAt);
+        assertThat(user.getAgeConfirmedAt()).isEqualTo(confirmedAt);
+        assertThat(agreements("sub-1")).isEqualTo(2);
+    }
+
+    @Test
+    void deletingTheAccountTakesItsRoomAndAgreementsWithIt() {
+        users.recordLogin("sub-1", "a@example.com");
+        users.update("sub-1", signup("명현"), null);
+
+        users.delete("sub-1");
+
+        assertThat(rows("sub-1")).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from rooms", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from terms_agreements", Integer.class)).isZero();
+        assertThat(currentTermsIds()).hasSize(2); // the texts themselves stay
     }
 
     @Test

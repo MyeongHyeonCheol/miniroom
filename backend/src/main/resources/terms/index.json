@@ -1,0 +1,4 @@
+[
+  { "kind": "terms", "version": 1, "title": "이용약관", "effectiveAt": "2026-10-02T00:00:00+09:00", "file": "terms-v1.txt" },
+  { "kind": "privacy", "version": 1, "title": "개인정보처리방침", "effectiveAt": "2026-10-02T00:00:00+09:00", "file": "privacy-v1.txt" }
+]

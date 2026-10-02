@@ -50,7 +50,9 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | POST | `/logout` | 예 | 로그아웃, `204` | 구현됨 |
 | GET | `/api/me` | 예 | 내 정보 | 구현됨 |
 | PATCH | `/api/me` | 예 | 첫 가입(닉네임 + 14세 + 약관), 이후 닉네임 변경 | 구현됨 |
-| DELETE | `/api/me` | 예 | 탈퇴 | |
+| DELETE | `/api/me` | 예 | 탈퇴(14세 미만이라고 답한 가입 창도 이것을 부름) | 구현됨 |
+| GET | `/api/terms` | 아니요 | 시행 중인 이용약관, 개인정보처리방침 본문 | 구현됨 |
+| GET | `/api/rooms/{slug}/invite` | 아니요 | 로그인 전 초대 화면용: 방 주인 닉네임만 | 구현됨 |
 | GET | `/api/rooms/{slug}` | 예 | 방 보기. 로그인만 필요하고 가입 전에도 볼 수 있다(가입 창이 방 위에 뜨므로, 2026-10-02) | 구현됨 |
 | PUT | `/api/rooms/me/layout` | 예(가입) | 내 방 바닥, 벽지, 배치 저장 | 구현됨 |
 | POST | `/api/rooms/{slug}/visits` | 예(가입) | 방문 기록, 투데이/토탈 | |
@@ -86,7 +88,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 첫 가입:
 
 ```json
-{ "nickname": "명현", "ageConfirmed": true, "termsAgreed": true, "privacyAgreed": true }
+{ "nickname": "명현", "ageConfirmed": true, "agreedTermsIds": [1, 2] }
 ```
 
 이후 닉네임 변경: `{ "nickname": "새닉네임" }`. 응답은 `GET /api/me`와 같다.
@@ -94,21 +96,39 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | 검증 | `code` |
 | --- | --- |
 | 닉네임: 앞뒤 공백을 자른 뒤 2~12자, 줄바꿈·제어 문자 없음, 중복 허용 | `NICKNAME_INVALID` |
-| 첫 가입인데 `ageConfirmed`, `termsAgreed`, `privacyAgreed` 중 하나라도 `true`가 아님 | `CONSENT_REQUIRED` |
+| 첫 가입인데 `ageConfirmed`가 `true`가 아니거나, `agreedTermsIds`가 지금 시행 중인 약관 ID 전부(`GET /api/terms`)와 다름(빠졌거나 옛 버전) | `CONSENT_REQUIRED` |
 | 가입한 뒤 동의 항목을 다시 보냄 | 무시(닉네임만 반영) |
 
 - **내 방은 첫 로그인 때 만든다**(2026-10-02 사용자 결정: 로그인하면 바로 내 방이 보이고, 가입 창은 그 위에 뜬다). 로그인 기록과 같은 트랜잭션에서 새 slug와 기본 배치(침대, 컴퓨터 책상, 화분. 러그는 모델이 생기면)로 만든다. slug가 겹치면 5번까지 다시 뽑는다.
 - 그래서 가입하지 않고 떠난 계정에도 방이 남는다. 14세 미만이라고 답하면 프론트가 `DELETE /api/me`로 계정과 방을 지운다. 오래 가입하지 않은 계정 정리는 개선 목록에 있다.
 - 닉네임의 "글자"는 코드 포인트 기준이다(이모지 하나 = 1자, PostgreSQL `varchar(12)`와 같음). 보이지 않는 글자(제어·서식 문자, 한글 채움 문자 `U+3164` 등)도 거절한다.
 - **바뀐 점**: 처음 초안은 "첫 로그인 때 생성", 10-01 수정안은 "가입 완료 때 생성"이었고, 10-02에 다시 첫 로그인으로 정했다.
-- 동의 시각은 `age_confirmed_at`, `terms_agreed_at`, `privacy_agreed_at`으로 기록한다(ERD).
+- 14세 확인 시각은 `users.age_confirmed_at`, 약관 동의는 버전마다 `terms_agreements` 한 줄(ERD). 약관은 별도 페이지 링크가 아니라 가입 창 안에서 본문을 보여 주고 동의받는다(2026-10-02 사용자 결정).
 
 ### `DELETE /api/me`
 
-- 계정, 내 방(방의 방명록과 방문 기록 포함), 내가 다른 방에 쓴 방명록을 지운다. 세션을 모두 끝낸다. `204`.
+- 계정, 내 방(방의 방명록과 방문 기록 포함), 내가 다른 방에 쓴 방명록, 약관 동의 기록을 지운다. 이 계정의 세션을 모두(다른 기기 포함) 끝낸다. `204`. CSRF 필요. 구현됨(2026-10-02).
 - 지표용 `events`의 `user_id`는 지우지 않고 `null`로 바꾼다(개인 식별 없이 집계 유지).
 
+### `GET /api/terms`
+
+```json
+[
+  { "id": 1, "kind": "terms", "version": 1, "title": "이용약관", "body": "제1조 (목적)\n...", "effectiveAt": "2026-10-02T00:00:00+09:00" },
+  { "id": 2, "kind": "privacy", "version": 1, "title": "개인정보처리방침", "body": "...", "effectiveAt": "2026-10-02T00:00:00+09:00" }
+]
+```
+
+- 종류(`terms`, `privacy`)마다 시행일이 지난 가장 새 버전 하나. 로그인 없이 볼 수 있다.
+- 본문은 일반 텍스트다. 프론트는 줄바꿈만 살려 텍스트로 그린다(HTML로 해석하지 않음).
+- 본문 원본은 `backend/src/main/resources/terms/`(목록 `index.json` + 버전별 `.txt`). 서버가 시작할 때 DB `terms`에 넣는다. 아무도 동의하지 않은 버전(초안)은 파일을 고치면 DB도 따라 바뀌고, 누군가 동의한 버전의 파일을 고치면 서버가 시작하지 않는다(바꾸려면 새 버전을 추가).
+- 운영자 이름, 연락 이메일, 서버 업체는 `[ ]`로 비워 둔 초안이다. 지인 테스트 전에 채운다.
+
 ## 방
+
+### `GET /api/rooms/{slug}/invite`
+
+- `{ "nickname": "명현" }`. 로그인 전 초대 화면("○○님의 미니룸에 초대받았어요")에 쓴다. 다른 정보는 주지 않는다. 주인이 가입 전이면 `null`. 없는 방은 `404 ROOM_NOT_FOUND`.
 
 ### `GET /api/rooms/{slug}`
 

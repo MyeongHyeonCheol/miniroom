@@ -28,6 +28,11 @@ public class SessionLimiter {
         markOthers(sessions, principalName, currentSessionId);
     }
 
+    /** Account deleted: every session of it ends now, this browser included. */
+    public void endAll(String principalName) {
+        sessions.findByPrincipalName(principalName).keySet().forEach(sessions::deleteById);
+    }
+
     private <S extends Session> void markOthers(FindByIndexNameSessionRepository<S> repo, String principalName,
             String currentSessionId) {
         repo.findByPrincipalName(principalName).forEach((id, session) -> {

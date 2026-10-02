@@ -4,6 +4,7 @@ import com.miniroom.common.Problems;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -18,6 +19,9 @@ public class SecurityConfig {
 
     private static final RequestMatcher API = request -> request.getRequestURI().startsWith("/api/");
 
+    /** The only /api paths open before login: the terms texts and the invite screen's owner nickname. */
+    private static final String[] PUBLIC_GETS = {"/api/terms", "/api/rooms/*/invite"};
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, GoogleLoginSuccess loginSuccess,
             @Value("${app.frontend-url}") String frontendUrl) throws Exception {
@@ -25,6 +29,7 @@ public class SecurityConfig {
                 // Don't save the request on 401: otherwise every anonymous /api/me call creates a session row
                 .requestCache(cache -> cache.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GETS).permitAll()
                         .requestMatchers(API).authenticated()
                         .anyRequest().permitAll())
                 // The SPA calls /api with fetch: answer 401/403 in the API error format instead of redirecting

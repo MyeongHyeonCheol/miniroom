@@ -36,6 +36,14 @@ public class RoomController {
         this.users = users;
     }
 
+    /** Public, for the invite screen before login ("○○님의 미니룸에 초대받았어요"): the owner's nickname only. */
+    public record InviteResponse(String nickname) {}
+
+    @GetMapping("/api/rooms/{slug}/invite")
+    public InviteResponse invite(@PathVariable String slug) {
+        return new InviteResponse(users.nicknameOf(rooms.bySlug(slug).getOwnerId()));
+    }
+
     /** Login is enough to look (the signup form sits over the room); writes need a finished signup. */
     @GetMapping("/api/rooms/{slug}")
     public RoomResponse room(@AuthenticationPrincipal OAuth2User principal, @PathVariable String slug) {

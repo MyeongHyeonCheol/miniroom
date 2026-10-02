@@ -1,9 +1,14 @@
 package com.miniroom.user;
 
+import com.miniroom.auth.SessionLimiter;
 import com.miniroom.metrics.EventLog;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,10 +32,12 @@ public class MeController {
 
     private final UserService users;
     private final EventLog events;
+    private final SessionLimiter sessions;
 
-    public MeController(UserService users, EventLog events) {
+    public MeController(UserService users, EventLog events, SessionLimiter sessions) {
         this.users = users;
         this.events = events;
+        this.sessions = sessions;
     }
 
     /** The OAuth2 principal's name is the Google "sub". The day's first call counts as session_start. */
@@ -47,5 +54,16 @@ public class MeController {
     public MeResponse update(@AuthenticationPrincipal OAuth2User principal, @RequestBody UserService.Update update,
             @RequestHeader(name = HttpHeaders.USER_AGENT, required = false) String userAgent) {
         return MeResponse.of(users.update(principal.getName(), update, userAgent));
+    }
+
+    /** Withdraw (also what an under-14 answer at signup does). Every session of the account ends. */
+    @DeleteMapping("/api/me")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal OAuth2User principal, HttpServletRequest request) {
+        users.delete(principal.getName());
+        sessions.endAll(principal.getName());
+        var session = request.getSession(false);
+        if (session != null) session.invalidate();
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.noContent().build();
     }
 }

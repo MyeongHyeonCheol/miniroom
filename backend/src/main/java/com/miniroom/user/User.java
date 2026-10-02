@@ -23,18 +23,15 @@ public class User {
     @Column(nullable = false, length = 320)
     private String email;
 
-    /** Null until signup. Set together with the three consent times (database check users_signup_complete). */
+    /**
+     * Null until signup. Set together with ageConfirmedAt (database check users_signup_complete). Which terms
+     * versions were agreed to, and when, are rows in terms_agreements.
+     */
     @Column(length = 12)
     private String nickname;
 
     @Column(name = "age_confirmed_at")
     private Instant ageConfirmedAt;
-
-    @Column(name = "terms_agreed_at")
-    private Instant termsAgreedAt;
-
-    @Column(name = "privacy_agreed_at")
-    private Instant privacyAgreedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -59,12 +56,10 @@ public class User {
 
     public boolean isSignedUp() { return nickname != null; }
 
-    /** First signup: nickname and all consents at once. */
+    /** First signup: nickname and the 14+ confirmation at once. */
     public void signUp(String nickname, Instant now) {
         this.nickname = nickname;
         this.ageConfirmedAt = now;
-        this.termsAgreedAt = now;
-        this.privacyAgreedAt = now;
     }
 
     public void rename(String nickname) {
@@ -76,8 +71,6 @@ public class User {
     public String getEmail() { return email; }
     public String getNickname() { return nickname; }
     public Instant getAgeConfirmedAt() { return ageConfirmedAt; }
-    public Instant getTermsAgreedAt() { return termsAgreedAt; }
-    public Instant getPrivacyAgreedAt() { return privacyAgreedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getLastLoginAt() { return lastLoginAt; }
 }

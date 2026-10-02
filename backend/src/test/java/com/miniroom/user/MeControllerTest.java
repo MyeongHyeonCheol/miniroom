@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.miniroom.auth.GoogleLoginSuccess;
 import com.miniroom.auth.SecurityConfig;
+import com.miniroom.auth.SessionLimiter;
 import com.miniroom.common.ApiException;
 import com.miniroom.metrics.EventLog;
 import com.miniroom.room.Room;
@@ -49,6 +50,9 @@ class MeControllerTest {
 
     @MockitoBean
     EventLog events;
+
+    @MockitoBean
+    SessionLimiter sessions;
 
     private static UserService.Me meOf(String nickname, String slug) {
         User user = new User("s1", "me@example.com", Instant.EPOCH);
@@ -88,7 +92,7 @@ class MeControllerTest {
 
         mvc.perform(patch("/api/me").with(oauth2Login().attributes(a -> a.put("sub", "s1")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"명현\",\"ageConfirmed\":true,\"termsAgreed\":true,\"privacyAgreed\":true}"))
+                        .content("{\"nickname\":\"명현\",\"ageConfirmed\":true,\"agreedTermsIds\":[1,2]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nickname").value("명현"))
                 .andExpect(jsonPath("$.needsSignup").value(false));

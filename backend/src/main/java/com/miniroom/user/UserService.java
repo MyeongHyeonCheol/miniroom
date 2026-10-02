@@ -4,7 +4,9 @@ import com.miniroom.common.ApiException;
 import com.miniroom.metrics.EventLog;
 import com.miniroom.room.Room;
 import com.miniroom.room.RoomService;
+import com.miniroom.terms.TermsService;
 import java.time.Clock;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,17 +17,22 @@ public class UserService {
     /** What GET /api/me is built from. */
     public record Me(User user, Room room) {}
 
-    /** PATCH /api/me. Consents only count at first signup; afterwards only the nickname changes. */
-    public record Update(String nickname, Boolean ageConfirmed, Boolean termsAgreed, Boolean privacyAgreed) {}
+    /**
+     * PATCH /api/me. ageConfirmed and agreedTermsIds (the ids from GET /api/terms) only count at first signup;
+     * afterwards only the nickname changes.
+     */
+    public record Update(String nickname, Boolean ageConfirmed, List<Long> agreedTermsIds) {}
 
     private final UserRepository users;
     private final RoomService rooms;
+    private final TermsService terms;
     private final EventLog events;
     private final Clock clock;
 
-    public UserService(UserRepository users, RoomService rooms, EventLog events, Clock clock) {
+    public UserService(UserRepository users, RoomService rooms, TermsService terms, EventLog events, Clock clock) {
         this.users = users;
         this.rooms = rooms;
+        this.terms = terms;
         this.events = events;
         this.clock = clock;
     }
@@ -56,16 +63,25 @@ public class UserService {
         if (user.isSignedUp()) {
             user.rename(nickname);
         } else {
-            if (!isTrue(update.ageConfirmed()) || !isTrue(update.termsAgreed()) || !isTrue(update.privacyAgreed())) {
-                throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "CONSENT_REQUIRED",
-                        "ageConfirmed, termsAgreed and privacyAgreed must all be true");
+            if (!isTrue(update.ageConfirmed())) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "CONSENT_REQUIRED", "ageConfirmed must be true");
             }
+            terms.agree(user.getId(), update.agreedTermsIds());
             user.signUp(nickname, clock.instant());
             Room room = rooms.ofOwner(user.getId());
             events.signup(user.getId(), room.getId(), userAgent);
             return new Me(user, room);
         }
         return new Me(user, rooms.ofOwner(user.getId()));
+    }
+
+    /**
+     * Deletes the account: its room, the guestbook entries it wrote and its terms agreements go with it
+     * (on delete cascade); metrics events keep their counts with the user and room set to null.
+     */
+    @Transactional
+    public void delete(String googleSub) {
+        users.delete(find(googleSub));
     }
 
     /** The logged-in account, signed up or not. */

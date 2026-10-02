@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.miniroom.IntegrationTest;
+import com.miniroom.Signups;
+import com.miniroom.terms.TermsService;
 import com.miniroom.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,9 @@ class RoomControllerIT {
     UserService users;
 
     @Autowired
+    TermsService terms;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     String mySlug;
@@ -43,7 +48,7 @@ class RoomControllerIT {
         jdbc.update("delete from users");
         users.recordLogin("me", "me@example.com");
         users.recordLogin("friend", "friend@example.com");
-        users.update("friend", new UserService.Update("친구", true, true, true), null);
+        users.update("friend", Signups.signup(terms, "친구"), null);
         mySlug = users.me("me").room().getSlug();
         friendSlug = users.me("friend").room().getSlug();
     }
@@ -53,7 +58,7 @@ class RoomControllerIT {
     }
 
     private void signUpMe() {
-        users.update("me", new UserService.Update("명현", true, true, true), null);
+        users.update("me", Signups.signup(terms, "명현"), null);
     }
 
     @Test
@@ -79,6 +84,17 @@ class RoomControllerIT {
                 .andExpect(jsonPath("$.isMine").value(false))
                 .andExpect(jsonPath("$.owner.nickname").value("친구"))
                 .andExpect(jsonPath("$.owner.email").doesNotExist());
+    }
+
+    @Test
+    void theInviteScreenGetsTheNicknameWithoutLogin() throws Exception {
+        mvc.perform(get("/api/rooms/" + friendSlug + "/invite"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("친구"))
+                .andExpect(jsonPath("$.layout").doesNotExist());
+        mvc.perform(get("/api/rooms/zzzzzzzz/invite"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
 
     @Test
