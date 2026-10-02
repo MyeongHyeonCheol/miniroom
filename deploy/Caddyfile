@@ -1,0 +1,30 @@
+# One domain for frontend and backend (docs/3D 미니룸 MVP 개발 프로세스.md, 3단계 "도메인 하나 구조").
+# Same routes as the Vite dev proxy, so cookies, CSRF and the OAuth redirect behave like local dev.
+# SITE_HOST=localhost: Caddy issues a certificate from its own local CA (browser warns until trusted, docs/deploy.md).
+# A real domain later: Caddy gets a Let's Encrypt certificate by itself.
+{$SITE_HOST:localhost} {
+	encode zstd gzip
+
+	@backend path /api/* /oauth2/* /login/* /logout /s/*
+	handle @backend {
+		# Caddy sets X-Forwarded-Proto/Host; Spring builds https://{host}/login/oauth2/code/google from them
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		root * /srv
+		# Vite build: file names under /assets carry a content hash, safe to cache forever
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		# glb and font chunks keep their names when they change: cache a day
+		@static path /models/* /fonts/* /licenses/*
+		header @static Cache-Control "public, max-age=86400"
+		# Always revalidate the page so a new build shows up right away
+		@page path / /index.html
+		header @page Cache-Control "no-cache"
+
+		# SPA: unknown paths (room addresses) get index.html
+		try_files {path} /index.html
+		file_server
+	}
+}

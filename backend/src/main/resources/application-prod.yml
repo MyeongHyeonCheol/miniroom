@@ -1,0 +1,15 @@
+# Production profile: behind Caddy on one HTTPS domain (compose.prod.yml, docs/deploy.md).
+# Caddy is the only way in: the backend port is not published, so trusting X-Forwarded-* is safe.
+server:
+  servlet:
+    session:
+      cookie:
+        # Spring Session would follow request.isSecure() anyway; pin it so a missing proxy header can't drop it
+        secure: true
+
+# API docs are for local development only
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
