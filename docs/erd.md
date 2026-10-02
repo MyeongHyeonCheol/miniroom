@@ -4,7 +4,7 @@
 
 - 상태: 초안 (2026-10-01).
 - DB: PostgreSQL 17. 시각은 모두 `timestamptz`, 방문 날짜는 앱에서 KST로 계산한 `date`.
-- 이미 있는 테이블: `users`(V1, V3), `spring_session`, `spring_session_attributes`(V2), `rooms`(V4). V3, V4는 2026-10-02.
+- 이미 있는 테이블: `users`(V1, V3), `spring_session`, `spring_session_attributes`(V2), `rooms`(V4), `events`(V5). V3~V5는 2026-10-02.
 
 ## 관계
 
@@ -168,6 +168,9 @@ erDiagram
 
 인덱스: `(type, created_at)`(지표 SQL), `(user_id, created_at)`(D7 리텐션).
 
+- `device`는 `check (device in ('pc', 'mobile'))`. 서버가 User-Agent로 정한다(iPhone, iPad, Android, Mobi면 mobile).
+- `session_start`는 KST 하루에 한 번만 넣는다(앱이 그날 0시 이후 행이 있는지 보고 넣음). 첫 요청 두 개가 동시에 오면 드물게 두 줄이 생길 수 있는데, 리텐션과 일일 사용자는 사용자 수로 세므로 결과가 바뀌지 않는다.
+
 ## 마이그레이션 순서 (4단계 1주차)
 
 | 버전 | 내용 |
@@ -176,9 +179,10 @@ erDiagram
 | V2 | Spring Session(있음) |
 | V3 | `users`에 닉네임, 동의 시각, `guestbook_checked_at`, `visitor_key`, `expansion_tickets`(있음) |
 | V4 | `rooms`, 이전 계정에 방 채워 넣기(있음) |
-| V5 | `guestbook_entries` |
-| V6 | `room_daily_visits` |
-| V7 | `room_expansions`, `events` |
+| V5 | `events`(있음, 2026-10-02. 1주차 "엔티티(events 포함)"라 앞당김) |
+| V6 | `guestbook_entries` |
+| V7 | `room_daily_visits` |
+| V8 | `room_expansions` |
 
 ## 개발 프로세스 문서의 초안에서 바뀐 점
 

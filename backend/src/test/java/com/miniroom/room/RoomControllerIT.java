@@ -43,7 +43,7 @@ class RoomControllerIT {
         jdbc.update("delete from users");
         users.recordLogin("me", "me@example.com");
         users.recordLogin("friend", "friend@example.com");
-        users.update("friend", new UserService.Update("친구", true, true, true));
+        users.update("friend", new UserService.Update("친구", true, true, true), null);
         mySlug = users.me("me").room().getSlug();
         friendSlug = users.me("friend").room().getSlug();
     }
@@ -53,7 +53,7 @@ class RoomControllerIT {
     }
 
     private void signUpMe() {
-        users.update("me", new UserService.Update("명현", true, true, true));
+        users.update("me", new UserService.Update("명현", true, true, true), null);
     }
 
     @Test

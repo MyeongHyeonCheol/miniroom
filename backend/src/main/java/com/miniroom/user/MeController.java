@@ -1,10 +1,13 @@
 package com.miniroom.user;
 
+import com.miniroom.metrics.EventLog;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,20 +26,26 @@ public class MeController {
     }
 
     private final UserService users;
+    private final EventLog events;
 
-    public MeController(UserService users) {
+    public MeController(UserService users, EventLog events) {
         this.users = users;
+        this.events = events;
     }
 
-    /** The OAuth2 principal's name is the Google "sub". */
+    /** The OAuth2 principal's name is the Google "sub". The day's first call counts as session_start. */
     @GetMapping("/api/me")
-    public MeResponse me(@AuthenticationPrincipal OAuth2User principal) {
-        return MeResponse.of(users.me(principal.getName()));
+    public MeResponse me(@AuthenticationPrincipal OAuth2User principal,
+            @RequestHeader(name = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+        UserService.Me me = users.me(principal.getName());
+        events.sessionStartOncePerDay(me.user().getId(), userAgent);
+        return MeResponse.of(me);
     }
 
     /** First signup (nickname + 14+ + terms + privacy), or a nickname change afterwards. */
     @PatchMapping("/api/me")
-    public MeResponse update(@AuthenticationPrincipal OAuth2User principal, @RequestBody UserService.Update update) {
-        return MeResponse.of(users.update(principal.getName(), update));
+    public MeResponse update(@AuthenticationPrincipal OAuth2User principal, @RequestBody UserService.Update update,
+            @RequestHeader(name = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+        return MeResponse.of(users.update(principal.getName(), update, userAgent));
     }
 }

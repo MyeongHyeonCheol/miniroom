@@ -112,7 +112,7 @@ class UserServiceIT {
     void signupStoresTrimmedNicknameAndAllConsentTimes() {
         users.recordLogin("sub-1", "a@example.com");
 
-        users.update("sub-1", signup("  명현 "));
+        users.update("sub-1", signup("  명현 "), null);
 
         User user = users.me("sub-1").user();
         assertThat(user.getNickname()).isEqualTo("명현");
@@ -125,9 +125,9 @@ class UserServiceIT {
     void signupWithoutEveryConsentIsRejectedAndSavesNothing() {
         users.recordLogin("sub-1", "a@example.com");
 
-        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, true, false)))
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", true, true, false), null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("CONSENT_REQUIRED"));
-        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", null, true, true)))
+        assertThatThrownBy(() -> users.update("sub-1", new UserService.Update("명현", null, true, true), null))
                 .isInstanceOf(ApiException.class);
         assertThat(users.me("sub-1").user().isSignedUp()).isFalse();
     }
@@ -135,10 +135,10 @@ class UserServiceIT {
     @Test
     void afterSignupOnlyTheNicknameChangesAndConsentsAreIgnored() {
         users.recordLogin("sub-1", "a@example.com");
-        users.update("sub-1", signup("명현"));
+        users.update("sub-1", signup("명현"), null);
         var agreedAt = users.me("sub-1").user().getTermsAgreedAt();
 
-        users.update("sub-1", new UserService.Update("새닉네임", false, false, false));
+        users.update("sub-1", new UserService.Update("새닉네임", false, false, false), null);
 
         User user = users.me("sub-1").user();
         assertThat(user.getNickname()).isEqualTo("새닉네임");

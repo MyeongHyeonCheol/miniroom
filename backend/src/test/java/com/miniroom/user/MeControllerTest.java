@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.miniroom.auth.GoogleLoginSuccess;
 import com.miniroom.auth.SecurityConfig;
 import com.miniroom.common.ApiException;
+import com.miniroom.metrics.EventLog;
 import com.miniroom.room.Room;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,9 @@ class MeControllerTest {
 
     @MockitoBean
     UserService users;
+
+    @MockitoBean
+    EventLog events;
 
     private static UserService.Me meOf(String nickname, String slug) {
         User user = new User("s1", "me@example.com", Instant.EPOCH);
@@ -80,7 +84,7 @@ class MeControllerTest {
     @Test
     void signupReturnsTheNewMe() throws Exception {
         var me = meOf("명현", "k3x9m2qa");
-        when(users.update(eq("s1"), any())).thenReturn(me);
+        when(users.update(eq("s1"), any(), any())).thenReturn(me);
 
         mvc.perform(patch("/api/me").with(oauth2Login().attributes(a -> a.put("sub", "s1")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON)
@@ -92,7 +96,7 @@ class MeControllerTest {
 
     @Test
     void validationErrorIsProblemWithCode() throws Exception {
-        when(users.update(eq("s1"), any()))
+        when(users.update(eq("s1"), any(), any()))
                 .thenThrow(new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "NICKNAME_INVALID", "too short"));
 
         mvc.perform(patch("/api/me").with(oauth2Login().attributes(a -> a.put("sub", "s1")))

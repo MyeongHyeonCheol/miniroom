@@ -1,6 +1,7 @@
 package com.miniroom.user;
 
 import com.miniroom.common.ApiException;
+import com.miniroom.metrics.EventLog;
 import com.miniroom.room.Room;
 import com.miniroom.room.RoomService;
 import java.time.Clock;
@@ -19,11 +20,13 @@ public class UserService {
 
     private final UserRepository users;
     private final RoomService rooms;
+    private final EventLog events;
     private final Clock clock;
 
-    public UserService(UserRepository users, RoomService rooms, Clock clock) {
+    public UserService(UserRepository users, RoomService rooms, EventLog events, Clock clock) {
         this.users = users;
         this.rooms = rooms;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -45,8 +48,9 @@ public class UserService {
         return new Me(user, rooms.ofOwner(user.getId()));
     }
 
+    /** userAgent: for the signup event's device (pc or mobile). */
     @Transactional
-    public Me update(String googleSub, Update update) {
+    public Me update(String googleSub, Update update, String userAgent) {
         User user = find(googleSub);
         String nickname = Nicknames.normalize(update.nickname());
         if (user.isSignedUp()) {
@@ -57,6 +61,9 @@ public class UserService {
                         "ageConfirmed, termsAgreed and privacyAgreed must all be true");
             }
             user.signUp(nickname, clock.instant());
+            Room room = rooms.ofOwner(user.getId());
+            events.signup(user.getId(), room.getId(), userAgent);
+            return new Me(user, room);
         }
         return new Me(user, rooms.ofOwner(user.getId()));
     }

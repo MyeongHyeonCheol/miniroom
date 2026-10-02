@@ -243,6 +243,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 
 - `type`: `share_open`, `mobile_notice`, `signup`, `session_start`, `furniture_move` 중 하나. 아니면 `422 EVENT_TYPE`.
 - `share_open`은 `/s/{slug}`가, `signup`은 `PATCH /api/me` 첫 가입이, `session_start`는 로그인 사용자의 그날 첫 `GET /api/me`가 서버에서 직접 기록한다. 프론트가 보내는 것은 `mobile_notice`, `furniture_move`뿐이다.
+- 구현됨(2026-10-02): `signup`(첫 가입과 같은 트랜잭션, 가입이 거절되면 남지 않음), `session_start`(KST 하루 1번). `share_open`과 이 API는 4주차.
 - 기기(`device`: `pc`, `mobile`)는 서버가 User-Agent로 정한다. 사용자, `mr_vk`도 서버가 붙인다. `204`.
 
 ## 공유 링크
