@@ -1,5 +1,5 @@
 import { CATALOG_BY_ID, lookupFurniture } from '../furniture/catalog'
-import { canPlace, MAX_PIECES, type Placement, type Rotation } from './placement'
+import { canPlace, pieceLimit, type Placement, type RoomSide, type Rotation } from './placement'
 import { FLOORS, WALLS, type FloorId, type WallId } from './surfaces'
 
 /**
@@ -35,11 +35,12 @@ const isCell = (n: unknown) => Number.isInteger(n)
 
 /**
  * Parse untrusted layout JSON. Pieces that are malformed, unknown, overlapping, outside the room or
- * past the 30-piece limit are dropped (counted in `dropped`) instead of failing the whole room.
+ * past the room's piece limit are dropped (counted in `dropped`) instead of failing the whole room.
  */
 export function parseLayoutJson(
   text: string,
   fallback: Layout,
+  side: RoomSide,
 ): { layout: Layout; dropped: number } | { error: 'invalid-json' | 'unsupported' } {
   let data: unknown
   try {
@@ -59,14 +60,14 @@ export function parseLayoutJson(
   for (const raw of d.items as unknown[]) {
     const it = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
     const ok =
-      placements.length < MAX_PIECES &&
+      placements.length < pieceLimit(side) &&
       typeof it.id === 'string' &&
       CATALOG_BY_ID.has(it.id) &&
       isCell(it.x) &&
       isCell(it.y) &&
       ROTATIONS.includes(it.r as number)
     const p = ok ? { furnitureId: it.id as string, x: it.x as number, y: it.y as number, rotation: it.r as Rotation } : null
-    if (p && canPlace(placements, p, lookupFurniture).ok) placements.push(p)
+    if (p && canPlace(placements, p, lookupFurniture, side).ok) placements.push(p)
     else dropped++
   }
   return { layout: { floor, wall, placements }, dropped }
@@ -85,7 +86,7 @@ export function saveLayout(layout: Layout): number | null {
   return new Blob([text]).size
 }
 
-export function loadLayout(fallback: Layout): { layout: Layout; dropped: number } | null {
+export function loadLayout(fallback: Layout, side: RoomSide): { layout: Layout; dropped: number } | null {
   let text: string | null = null
   try {
     text = localStorage.getItem(STORAGE_KEY)
@@ -93,6 +94,6 @@ export function loadLayout(fallback: Layout): { layout: Layout; dropped: number 
     return null
   }
   if (text === null) return null
-  const result = parseLayoutJson(text, fallback)
+  const result = parseLayoutJson(text, fallback, side)
   return 'error' in result ? null : result
 }

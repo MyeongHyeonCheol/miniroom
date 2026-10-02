@@ -6,7 +6,7 @@ import { lookupFurniture } from '../furniture/catalog'
 import { useFurnitureMesh } from '../furniture/useFurnitureMesh'
 import { useRoomStore } from '../store/roomStore'
 import { IconButton, RotateIcon, TrashIcon } from '../ui/IconButton'
-import { CELL, GRID, rotatedSize, type Placement } from './placement'
+import { CELL, rotatedSize, type Placement, type RoomSide } from './placement'
 import { cellFromClient } from './pointer'
 
 // docs/design.md "3D 위 표시 색"
@@ -15,15 +15,16 @@ const CELL_BLOCKED = { color: '#E07A6B', opacity: 0.5 }
 const SELECTED = '#66BDE6'
 
 /** Footprint rectangle in cells, clipped to the room: [x0, y0, x1, y1]. */
-function footprint(p: Placement): [number, number, number, number] {
+function footprint(p: Placement, side: RoomSide): [number, number, number, number] {
   const [w, d] = rotatedSize(lookupFurniture(p.furnitureId).size, p.rotation)
-  const clip = (v: number) => Math.min(GRID, Math.max(0, v))
+  const clip = (v: number) => Math.min(side, Math.max(0, v))
   return [clip(p.x), clip(p.y), clip(p.x + w), clip(p.y + d)]
 }
 
 /** Cells the dragged piece would cover: green if it can land, red if not. */
 function DropCells({ preview, valid }: { preview: Placement; valid: boolean }) {
-  const [x0, y0, x1, y1] = footprint(preview)
+  const side = useRoomStore((s) => s.size)
+  const [x0, y0, x1, y1] = footprint(preview, side)
   if (x1 <= x0 || y1 <= y0) return null
   const { color, opacity } = valid ? CELL_OK : CELL_BLOCKED
   return (
@@ -39,7 +40,8 @@ function Selection({ placement }: { placement: Placement }) {
   const { height } = useFurnitureMesh(placement.furnitureId)
   const rotateSelected = useRoomStore((s) => s.rotateSelected)
   const removeSelected = useRoomStore((s) => s.removeSelected)
-  const [x0, y0, x1, y1] = footprint(placement).map((v) => v * CELL)
+  const side = useRoomStore((s) => s.size)
+  const [x0, y0, x1, y1] = footprint(placement, side).map((v) => v * CELL)
   const y = 0.006
   return (
     <>
@@ -73,7 +75,7 @@ function DragController() {
     if (!dragging) return
     const { moveDrag, endDrag } = useRoomStore.getState()
     const move = (e: PointerEvent) => {
-      const cell = cellFromClient(e.clientX, e.clientY, canvas, camera)
+      const cell = cellFromClient(e.clientX, e.clientY, canvas, camera, useRoomStore.getState().size)
       if (cell) moveDrag(cell[0], cell[1])
     }
     const up = () => endDrag()

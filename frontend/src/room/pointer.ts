@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { cellAt } from './placement'
+import { cellAt, type RoomSide } from './placement'
 
 /**
  * Drag plane: a horizontal plane at the height where the piece was grabbed. Reading pointer moves
@@ -13,17 +13,23 @@ export function setDragPlaneHeight(y: number) {
 }
 
 /** Cell under a world point (clamped to the room). */
-export function cellAtPoint(p: THREE.Vector3): [number, number] {
-  return cellAt(p.x, p.z)
+export function cellAtPoint(p: THREE.Vector3, side: RoomSide): [number, number] {
+  return cellAt(p.x, p.z, side)
 }
 
 const raycaster = new THREE.Raycaster()
 const ndc = new THREE.Vector2()
 
 /** Cell under a DOM pointer position, read on the drag plane. Null if the ray misses it. */
-export function cellFromClient(clientX: number, clientY: number, canvas: HTMLElement, camera: THREE.Camera) {
+export function cellFromClient(
+  clientX: number,
+  clientY: number,
+  canvas: HTMLElement,
+  camera: THREE.Camera,
+  side: RoomSide,
+) {
   const r = canvas.getBoundingClientRect()
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1)
   raycaster.setFromCamera(ndc, camera)
-  return raycaster.ray.intersectPlane(plane, hit) ? cellAtPoint(hit) : null
+  return raycaster.ray.intersectPlane(plane, hit) ? cellAtPoint(hit, side) : null
 }

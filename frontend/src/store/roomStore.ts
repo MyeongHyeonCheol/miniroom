@@ -2,7 +2,16 @@ import { create } from 'zustand'
 import { lookupFurniture } from '../furniture/catalog'
 import { loadLayout, saveLayout, toLayoutJson, type Layout } from '../room/layoutJson'
 import { DEFAULT_LAYOUT, stressLayout } from '../room/layouts'
-import { canPlace, findFreeSpot, MAX_PIECES, type Placement, type Rotation } from '../room/placement'
+import {
+  canPlace,
+  findFreeSpot,
+  isRoomSide,
+  pieceLimit,
+  SIGNUP_SIDE,
+  type Placement,
+  type RoomSide,
+  type Rotation,
+} from '../room/placement'
 import type { FloorId, WallId } from '../room/surfaces'
 
 /** Piece being dragged: where it would land and whether that is allowed. */
@@ -18,6 +27,8 @@ export type DragState = {
 export type Notice = { id: number; text: string; tone: 'info' | 'error' }
 
 type RoomState = {
+  /** Cells per room side. Every placement rule reads it from here. */
+  size: RoomSide
   floor: FloorId
   wall: WallId
   shadows: boolean
@@ -46,15 +57,24 @@ const params = new URLSearchParams(window.location.search)
 
 const DEFAULT: Layout = { floor: 'wood', wall: 'ivory', placements: DEFAULT_LAYOUT }
 
+/** `?grid=16` (12/16/20/24) previews a widened room until rooms come from the API. */
+const initialSide: RoomSide = (() => {
+  const v = Number(params.get('grid'))
+  return isRoomSide(v) ? v : SIGNUP_SIDE
+})()
+
 /** ?stress=N (measurement) wins over the saved layout; otherwise saved, else the default room. */
-function initialLayout(): { layout: Layout; saved: boolean; dropped: number } {
+function initialLayout(side: RoomSide): { layout: Layout; saved: boolean; dropped: number } {
   const stress = Number(params.get('stress'))
-  if (stress > 0) return { layout: { ...DEFAULT, placements: stressLayout(Math.min(stress, MAX_PIECES)) }, saved: false, dropped: 0 }
-  const loaded = loadLayout(DEFAULT)
+  if (stress > 0) {
+    const placements = stressLayout(Math.min(stress, pieceLimit(side)), side)
+    return { layout: { ...DEFAULT, placements }, saved: false, dropped: 0 }
+  }
+  const loaded = loadLayout(DEFAULT, side)
   return loaded ? { ...loaded, saved: true } : { layout: DEFAULT, saved: false, dropped: 0 }
 }
 
-const initial = initialLayout()
+const initial = initialLayout(initialSide)
 
 /** Canonical JSON of the current layout (used for saving and for the unsaved-changes check). */
 export const layoutJsonOf = (s: Pick<RoomState, 'floor' | 'wall' | 'placements'>) =>
@@ -63,7 +83,7 @@ export const layoutJsonOf = (s: Pick<RoomState, 'floor' | 'wall' | 'placements'>
 const MESSAGES = {
   overlap: '다른 가구와 겹쳐서 놓을 수 없어요',
   outside: '방 밖으로 나가서 놓을 수 없어요',
-  full: `가구는 방에 ${MAX_PIECES}개까지 놓을 수 있어요`,
+  full: (limit: number) => `가구는 방에 ${limit}개까지 놓을 수 있어요`,
   noSpace: '빈 자리가 없어요',
   saveFailed: '저장하지 못했어요. 브라우저 저장소를 확인해 주세요',
 }
@@ -71,6 +91,7 @@ const MESSAGES = {
 let noticeId = 0
 
 export const useRoomStore = create<RoomState>((set, get) => ({
+  size: initialSide,
   floor: initial.layout.floor,
   wall: initial.layout.wall,
   shadows: params.get('shadows') === '1',
@@ -95,20 +116,20 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   moveDrag: (cellX, cellY) => {
-    const { drag, placements } = get()
+    const { drag, placements, size } = get()
     if (!drag) return
     const preview = { ...drag.preview, x: cellX - drag.grabDx, y: cellY - drag.grabDy }
     if (preview.x === drag.preview.x && preview.y === drag.preview.y) return
-    const valid = canPlace(placements, preview, lookupFurniture, drag.index).ok
+    const valid = canPlace(placements, preview, lookupFurniture, size, drag.index).ok
     set({ drag: { ...drag, preview, valid } })
   },
 
   endDrag: () => {
-    const { drag, placements, notify } = get()
+    const { drag, placements, size, notify } = get()
     if (!drag) return
     const from = placements[drag.index]
     if (from.x === drag.preview.x && from.y === drag.preview.y) return set({ drag: null }) // a click, not a move
-    const check = canPlace(placements, drag.preview, lookupFurniture, drag.index)
+    const check = canPlace(placements, drag.preview, lookupFurniture, size, drag.index)
     if (check.ok) {
       const next = placements.slice()
       next[drag.index] = drag.preview
@@ -120,11 +141,11 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   rotateSelected: () => {
-    const { selected, placements, drag, notify } = get()
+    const { selected, placements, drag, size, notify } = get()
     if (selected === null || drag) return
     const p = placements[selected]
     const rotated = { ...p, rotation: ((p.rotation + 90) % 360) as Rotation }
-    const check = canPlace(placements, rotated, lookupFurniture, selected)
+    const check = canPlace(placements, rotated, lookupFurniture, size, selected)
     if (!check.ok) return notify(MESSAGES[check.reason], 'error')
     const next = placements.slice()
     next[selected] = rotated
@@ -138,9 +159,10 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   addFurniture: (furnitureId) => {
-    const { placements, notify } = get()
-    if (placements.length >= MAX_PIECES) return notify(MESSAGES.full, 'error')
-    const spot = findFreeSpot(placements, furnitureId, lookupFurniture)
+    const { placements, size, notify } = get()
+    const limit = pieceLimit(size)
+    if (placements.length >= limit) return notify(MESSAGES.full(limit), 'error')
+    const spot = findFreeSpot(placements, furnitureId, lookupFurniture, size)
     if (!spot) return notify(MESSAGES.noSpace, 'error')
     set({ placements: [...placements, spot], selected: placements.length })
   },

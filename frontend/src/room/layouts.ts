@@ -1,5 +1,5 @@
 import { CATALOG_BY_ID } from '../furniture/catalog'
-import { coveredCells, GRID, insideRoom, type Placement, type Rotation } from './placement'
+import { coveredCells, insideRoom, type Placement, type RoomSide, type Rotation } from './placement'
 
 /** Same layout as assets/blender/preview_room.py, headboard / desk back against the back wall. */
 export const DEFAULT_LAYOUT: Placement[] = [
@@ -23,7 +23,7 @@ function mulberry32(seed: number) {
  * Stress layout: up to `count` non-overlapping pieces, big ones first, random rotations.
  * Mix is fixed (2 beds, 3 desks, rest plants) so 30 pieces fit into 64 cells.
  */
-export function stressLayout(count: number, seed = 1): Placement[] {
+export function stressLayout(count: number, side: RoomSide, seed = 1): Placement[] {
   const rand = mulberry32(seed)
   const wanted = ['bed', 'bed', 'computer_desk', 'computer_desk', 'computer_desk']
   while (wanted.length < count) wanted.push('plant_pot')
@@ -35,11 +35,11 @@ export function stressLayout(count: number, seed = 1): Placement[] {
     for (let attempt = 0; attempt < 400; attempt++) {
       const p: Placement = {
         furnitureId: id,
-        x: Math.floor(rand() * GRID),
-        y: Math.floor(rand() * GRID),
+        x: Math.floor(rand() * side),
+        y: Math.floor(rand() * side),
         rotation: rotations[Math.floor(rand() * 4)],
       }
-      if (!insideRoom(p, size)) continue
+      if (!insideRoom(p, size, side)) continue
       const cells = coveredCells(p, size)
       if (cells.some((c) => used.has(c))) continue
       cells.forEach((c) => used.add(c))

@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useRoomStore } from '../store/roomStore'
-import { ROOM_BOUNDS, ROOM_SIZE } from './placement'
+import { roomBounds, roomMeters } from './placement'
 
 const YAW = Math.PI / 4 // 45 degrees around the room
 const PITCH = (35 * Math.PI) / 180 // looking down
@@ -13,7 +13,8 @@ const MARGIN = 0.08
 // Pan and zoom limits. Zoom is relative to the "whole room fits" zoom.
 const ZOOM_MIN = 0.8
 const ZOOM_MAX = 4
-const PAN_LIMIT = ROOM_SIZE * 0.6
+/** Pan limit as a fraction of the room side */
+const PAN_LIMIT = 0.6
 
 /**
  * Fixed quarter view. The room box (floor slab to wall top) is projected to the screen, then the
@@ -24,13 +25,15 @@ export function CameraRig() {
   const ref = useRef<THREE.OrthographicCamera>(null)
   const size = useThree((s) => s.size)
   const gl = useThree((s) => s.gl)
-  const view = useRef({ base: new THREE.Vector3(), fitZoom: 1, pan: new THREE.Vector2(), zoom: 1 })
+  const side = useRoomStore((s) => s.size)
+  const meters = roomMeters(side)
+  const view = useRef({ base: new THREE.Vector3(), fitZoom: 1, pan: new THREE.Vector2(), zoom: 1, panLimit: 1 })
 
   const apply = () => {
     const cam = ref.current
     if (!cam) return
     const v = view.current
-    v.pan.clampScalar(-PAN_LIMIT, PAN_LIMIT)
+    v.pan.clampScalar(-v.panLimit, v.panLimit)
     v.zoom = THREE.MathUtils.clamp(v.zoom, ZOOM_MIN, ZOOM_MAX)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion)
@@ -42,7 +45,7 @@ export function CameraRig() {
   useLayoutEffect(() => {
     const cam = ref.current
     if (!cam) return
-    const target = new THREE.Vector3(ROOM_SIZE / 2, 0, ROOM_SIZE / 2)
+    const target = new THREE.Vector3(meters / 2, 0, meters / 2)
     cam.position.set(
       target.x + DISTANCE * Math.cos(PITCH) * Math.sin(YAW),
       target.y + DISTANCE * Math.sin(PITCH),
@@ -53,7 +56,7 @@ export function CameraRig() {
 
     // Room corners in camera space (x right, y up)
     const box = new THREE.Box3()
-    const [min, max] = ROOM_BOUNDS
+    const [min, max] = roomBounds(side)
     for (const x of [min[0], max[0]])
       for (const y of [min[1], max[1]])
         for (const z of [min[2], max[2]])
@@ -66,9 +69,10 @@ export function CameraRig() {
     const w = box.max.x - box.min.x
     const h = box.max.y - box.min.y
     view.current.base.copy(cam.position)
+    view.current.panLimit = PAN_LIMIT * meters
     view.current.fitZoom = Math.min(size.width / w, size.height / h) * (1 - 2 * MARGIN)
     apply()
-  }, [size.width, size.height])
+  }, [size.width, size.height, side, meters])
 
   useEffect(() => {
     const el = gl.domElement

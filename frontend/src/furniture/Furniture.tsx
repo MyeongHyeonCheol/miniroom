@@ -66,7 +66,7 @@ function FurnitureInstances({ id, items, material }: { id: string; items: Item[]
     if (e.button !== 0 || e.instanceId === undefined) return
     e.stopPropagation()
     setDragPlaneHeight(e.point.y)
-    const [cx, cy] = cellAtPoint(e.point)
+    const [cx, cy] = cellAtPoint(e.point, useRoomStore.getState().size)
     startDrag(items[e.instanceId].index, cx, cy)
   }
 

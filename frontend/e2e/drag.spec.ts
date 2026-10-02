@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { GRID } from '../src/room/placement'
+import { SIGNUP_SIDE as GRID } from '../src/room/placement'
 
 // Default layout: bed (0,0) 2x4, computer desk (3,0) 3x2, plant (6,0) 1x1. All rotation 0.
 const BED = 0

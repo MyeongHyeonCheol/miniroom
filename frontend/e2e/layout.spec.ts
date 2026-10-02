@@ -2,11 +2,14 @@ import { expect, test } from '@playwright/test'
 import { lookupFurniture } from '../src/furniture/catalog'
 import { parseLayoutJson, toLayoutJson, type Layout } from '../src/room/layoutJson'
 import { stressLayout } from '../src/room/layouts'
-import { coveredCells, GRID, MAX_PIECES, toWorld, type Placement } from '../src/room/placement'
+import { coveredCells, pieceLimit, toWorld, type Placement } from '../src/room/placement'
+
+const GRID = 12
+const MAX_PIECES = pieceLimit(GRID)
 
 const EMPTY: Layout = { floor: 'wood', wall: 'ivory', placements: [] }
 const parse = (value: unknown) => {
-  const r = parseLayoutJson(JSON.stringify(value), EMPTY)
+  const r = parseLayoutJson(JSON.stringify(value), EMPTY, GRID)
   if ('error' in r) throw new Error(r.error)
   return r
 }
@@ -14,14 +17,14 @@ const parse = (value: unknown) => {
 // Pure-logic checks for the saved layout JSON. No browser needed.
 test.describe('layout json', () => {
   test('round trip keeps every placement', () => {
-    const layout: Layout = { floor: 'check', wall: 'strawberry', placements: stressLayout(30) }
+    const layout: Layout = { floor: 'check', wall: 'strawberry', placements: stressLayout(30, GRID) }
     const { layout: back, dropped } = parse(toLayoutJson(layout))
     expect(dropped).toBe(0)
     expect(back).toEqual(layout)
   })
 
   test('30 pieces stay under 10 KB', () => {
-    const bytes = new TextEncoder().encode(JSON.stringify(toLayoutJson({ ...EMPTY, placements: stressLayout(30) }))).length
+    const bytes = new TextEncoder().encode(JSON.stringify(toLayoutJson({ ...EMPTY, placements: stressLayout(30, GRID) }))).length
     console.log('layout json 30 pieces', bytes, 'bytes')
     expect(bytes).toBeLessThan(10 * 1024)
   })
@@ -66,9 +69,9 @@ test.describe('layout json', () => {
   })
 
   test('broken or unknown versions are rejected', () => {
-    expect(parseLayoutJson('{oops', EMPTY)).toEqual({ error: 'invalid-json' })
-    expect(parseLayoutJson(JSON.stringify({ v: 2, items: [] }), EMPTY)).toEqual({ error: 'unsupported' })
-    expect(parseLayoutJson('null', EMPTY)).toEqual({ error: 'unsupported' })
+    expect(parseLayoutJson('{oops', EMPTY, GRID)).toEqual({ error: 'invalid-json' })
+    expect(parseLayoutJson(JSON.stringify({ v: 2, items: [] }), EMPTY, GRID)).toEqual({ error: 'unsupported' })
+    expect(parseLayoutJson('null', EMPTY, GRID)).toEqual({ error: 'unsupported' })
   })
 })
 

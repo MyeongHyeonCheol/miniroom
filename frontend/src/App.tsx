@@ -7,7 +7,7 @@ import { FurnitureLayer } from './furniture/Furniture'
 import { CameraRig } from './room/CameraRig'
 import { Island } from './room/Island'
 import { PlacementOverlay } from './room/PlacementOverlay'
-import { ROOM_SIZE } from './room/placement'
+import { roomMeters } from './room/placement'
 import { Room } from './room/Room'
 import { FLOORS, WALLS } from './room/surfaces'
 import { layoutJsonOf, useRoomStore } from './store/roomStore'
@@ -19,7 +19,7 @@ import { Toast } from './ui/Toast'
 
 function Lights() {
   const shadows = useRoomStore((s) => s.shadows)
-  const c = ROOM_SIZE / 2
+  const c = roomMeters(useRoomStore((s) => s.size)) / 2
   return (
     <>
       <hemisphereLight args={['#fff6e8', '#c8a27a', 1.6]} />

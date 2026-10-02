@@ -1,37 +1,39 @@
 /**
  * Room coordinates.
  *
- * - 1 cell = 0.5 m. The room is GRID x GRID cells (AGENTS.md: 12 on signup, widened to 16/20/24).
+ * - 1 cell = 0.5 m. A room is side x side cells (AGENTS.md: 12 on signup, widened to 16/20/24). The side comes
+ *   with the room (GET /api/rooms/{slug} `size`), so every rule here takes it as an argument.
  *   Cell (x, y): x grows along world +X, y along world +Z. Widening adds cells on the +X/+Z side only,
  *   so saved anchors stay valid.
  * - Walls stand on the x = 0 side (left) and the y = 0 side (back). The camera looks from +X/+Z.
  * - A placement is stored as the anchor cell (top-left = min x, min y of the footprint) + rotation.
  * - Models have their origin at the footprint center on the floor and face +Z at rotation 0.
  *   Rotation is clockwise seen from above, in 90-degree steps.
+ * Same rules as the backend's LayoutValidator, which checks every save.
  */
 export const CELL = 0.5
 /** Room sides a room can have, and the piece limit (wall decor included) for each. AGENTS.md "3D 방과 가구 규칙". */
 export const PIECE_LIMITS = { 12: 45, 16: 60, 20: 90, 24: 120 } as const
 export type RoomSide = keyof typeof PIECE_LIMITS
+export const SIGNUP_SIDE: RoomSide = 12
 
-/** Until rooms come from the API every room is the signup size. `?grid=16` (12/16/20/24) previews a widened room. */
-function roomSide(): RoomSide {
-  // globalThis: pure-logic tests import this module in Node, where there is no window
-  const v = Number(new URLSearchParams(globalThis.location?.search ?? '').get('grid'))
-  return v in PIECE_LIMITS ? (v as RoomSide) : 12
-}
-export const GRID: RoomSide = roomSide()
-export const ROOM_SIZE = CELL * GRID
+export const isRoomSide = (n: unknown): n is RoomSide => typeof n === 'number' && n in PIECE_LIMITS
+export const pieceLimit = (side: RoomSide): number => PIECE_LIMITS[side]
+/** Length of one room side in meters. */
+export const roomMeters = (side: RoomSide) => CELL * side
 
 /** Room shell, in meters. Walls stand outside the grid (x < 0, z < 0). */
 export const WALL_H = 2.4
 export const WALL_T = 0.12
 export const FLOOR_T = 0.12
 /** World-space box of the room (floor slab bottom to wall top, walls included), for camera fitting. */
-export const ROOM_BOUNDS: [[number, number, number], [number, number, number]] = [
-  [-WALL_T, -FLOOR_T, -WALL_T],
-  [ROOM_SIZE, WALL_H - FLOOR_T, ROOM_SIZE],
-]
+export function roomBounds(side: RoomSide): [[number, number, number], [number, number, number]] {
+  const m = roomMeters(side)
+  return [
+    [-WALL_T, -FLOOR_T, -WALL_T],
+    [m, WALL_H - FLOOR_T, m],
+  ]
+}
 
 export type Rotation = 0 | 90 | 180 | 270
 
@@ -68,12 +70,14 @@ export function coveredCells(p: Pick<Placement, 'x' | 'y' | 'rotation'>, size: r
   return cells
 }
 
-export function insideRoom(p: Pick<Placement, 'x' | 'y' | 'rotation'>, size: readonly [number, number]): boolean {
+export function insideRoom(
+  p: Pick<Placement, 'x' | 'y' | 'rotation'>,
+  size: readonly [number, number],
+  side: RoomSide,
+): boolean {
   const [w, d] = rotatedSize(size, p.rotation)
-  return p.x >= 0 && p.y >= 0 && p.x + w <= GRID && p.y + d <= GRID
+  return p.x >= 0 && p.y >= 0 && p.x + w <= side && p.y + d <= side
 }
-
-export const MAX_PIECES: number = PIECE_LIMITS[GRID]
 
 export type FurnitureInfo = { size: readonly [number, number]; category: string }
 export type Lookup = (furnitureId: string) => FurnitureInfo
@@ -89,10 +93,11 @@ export function canPlace(
   placements: readonly Placement[],
   candidate: Placement,
   lookup: Lookup,
+  side: RoomSide,
   ignoreIndex = -1,
 ): PlaceCheck {
   const info = lookup(candidate.furnitureId)
-  if (!insideRoom(candidate, info.size)) return { ok: false, reason: 'outside' }
+  if (!insideRoom(candidate, info.size, side)) return { ok: false, reason: 'outside' }
   const mine = new Set(coveredCells(candidate, info.size))
   const isRug = info.category === 'rug'
   for (let i = 0; i < placements.length; i++) {
@@ -106,18 +111,23 @@ export function canPlace(
 }
 
 /** First free spot scanning row by row, trying all rotations. */
-export function findFreeSpot(placements: readonly Placement[], furnitureId: string, lookup: Lookup): Placement | null {
-  for (let y = 0; y < GRID; y++)
-    for (let x = 0; x < GRID; x++)
+export function findFreeSpot(
+  placements: readonly Placement[],
+  furnitureId: string,
+  lookup: Lookup,
+  side: RoomSide,
+): Placement | null {
+  for (let y = 0; y < side; y++)
+    for (let x = 0; x < side; x++)
       for (const rotation of [0, 90, 180, 270] as const) {
         const p: Placement = { furnitureId, x, y, rotation }
-        if (canPlace(placements, p, lookup).ok) return p
+        if (canPlace(placements, p, lookup, side).ok) return p
       }
   return null
 }
 
 /** Cell under a floor point (world x/z), clamped to the room. */
-export function cellAt(worldX: number, worldZ: number): [number, number] {
-  const clamp = (v: number) => Math.min(GRID - 1, Math.max(0, Math.floor(v / CELL)))
+export function cellAt(worldX: number, worldZ: number, side: RoomSide): [number, number] {
+  const clamp = (v: number) => Math.min(side - 1, Math.max(0, Math.floor(v / CELL)))
   return [clamp(worldX), clamp(worldZ)]
 }

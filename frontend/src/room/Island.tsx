@@ -1,4 +1,5 @@
-import { FLOOR_T, ROOM_SIZE, WALL_T } from './placement'
+import { useRoomStore } from '../store/roomStore'
+import { FLOOR_T, roomMeters, WALL_T } from './placement'
 
 // docs/design.md "방 바깥 배경": the room floats on a block of grass and soil (default backdrop).
 const GRASS = '#9CCF8A'
@@ -7,10 +8,11 @@ const SOIL_DARK = '#946645'
 /** Grass rim around the room, in meters */
 const PAD = 0.9
 
-/** Grows with the room (ROOM_SIZE), so a widened room keeps the same rim. */
+/** Grows with the room, so a widened room keeps the same rim. */
 export function Island() {
-  const w = ROOM_SIZE + WALL_T + PAD * 2
-  const c = (ROOM_SIZE - WALL_T) / 2
+  const meters = roomMeters(useRoomStore((s) => s.size))
+  const w = meters + WALL_T + PAD * 2
+  const c = (meters - WALL_T) / 2
   const top = -FLOOR_T
   return (
     <group>
