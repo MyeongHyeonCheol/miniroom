@@ -7,7 +7,7 @@ const DESK = 1
 const PLANT = 2
 
 async function openRoom(page: Page, query = '') {
-  await page.goto(`/${query}`)
+  await page.goto(`/dev/room${query}`)
   await page.waitForFunction(() => window.__miniroomStats?.furnitureReadyMs != null, null, { timeout: 20_000 })
   await page.waitForFunction(() => (window.__miniroomStats?.drawCalls ?? 0) > 0)
 }

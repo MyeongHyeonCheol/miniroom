@@ -10,7 +10,7 @@ async function waitForRoom(page: Page) {
 test('room renders with furniture and no errors', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto('/')
+  await page.goto('/dev/room')
   await expect(page.locator('canvas')).toBeVisible()
   const stats = await waitForRoom(page)
   expect(stats.loadedTypes.sort()).toEqual(['bed', 'computer_desk', 'plant_pot'])
@@ -19,14 +19,14 @@ test('room renders with furniture and no errors', async ({ page }) => {
 })
 
 test('30 pieces stay within the draw-call budget', async ({ page }) => {
-  await page.goto('/?stress=30')
+  await page.goto('/dev/room?stress=30')
   const stats = await waitForRoom(page)
   await expect(page.locator('[data-stat="가구"]')).toHaveText('30개한도 45')
   expect(stats.drawCalls).toBeLessThanOrEqual(100)
 })
 
 test('floor and wallpaper can be switched', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/dev/room')
   await waitForRoom(page)
   const floor = page.getByRole('radiogroup', { name: '바닥' })
   await floor.getByRole('radio', { name: '체크 장판' }).click()
@@ -39,7 +39,7 @@ test('floor and wallpaper can be switched', async ({ page }) => {
 })
 
 test('shadow toggle', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/dev/room')
   await waitForRoom(page)
   const button = page.getByRole('button', { name: /그림자/ })
   await expect(button).toHaveAttribute('aria-pressed', 'false')

@@ -107,8 +107,10 @@ function DragController() {
 }
 
 export function PlacementOverlay() {
+  const editable = useRoomStore((s) => s.editable)
   const drag = useRoomStore((s) => s.drag)
   const selected = useRoomStore((s) => (s.selected === null ? null : s.placements[s.selected] ?? null))
+  if (!editable) return null
   return (
     <>
       <DragController />

@@ -76,7 +76,7 @@ test.describe('layout json', () => {
 })
 
 test('saved layout comes back after reload', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/dev/room')
   await page.waitForFunction(() => window.__miniroomStats?.furnitureReadyMs != null, null, { timeout: 20_000 })
 
   // change floor, wall, rotate the desk, move the plant, add a plant
@@ -111,7 +111,7 @@ test('saved layout comes back after reload', async ({ page }) => {
 })
 
 test('unsaved changes are not restored, and ?stress ignores the saved layout', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/dev/room')
   await page.waitForFunction(() => window.__miniroomStats?.furnitureReadyMs != null, null, { timeout: 20_000 })
   await page.evaluate(() => window.__miniroomRoom!().addFurniture('plant_pot'))
   await page.reload()
@@ -119,7 +119,7 @@ test('unsaved changes are not restored, and ?stress ignores the saved layout', a
   expect(await page.evaluate(() => window.__miniroomRoom!().placements.length)).toBe(3)
 
   await page.evaluate(() => localStorage.setItem('miniroom.layout', JSON.stringify({ v: 1, floor: 'wood', wall: 'ivory', items: [] })))
-  await page.goto('/?stress=30')
+  await page.goto('/dev/room?stress=30')
   await page.waitForFunction(() => window.__miniroomRoom != null)
   expect(await page.evaluate(() => window.__miniroomRoom!().placements.length)).toBe(30)
 })

@@ -63,7 +63,8 @@ function FurnitureInstances({ id, items, material }: { id: string; items: Item[]
   }, [drag, items, def.size, nodeMatrix])
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (e.button !== 0 || e.instanceId === undefined) return
+    // Looking at a room: presses go through to the floor, so dragging pans the view
+    if (e.button !== 0 || e.instanceId === undefined || !useRoomStore.getState().editable) return
     e.stopPropagation()
     setDragPlaneHeight(e.point.y)
     const [cx, cy] = cellAtPoint(e.point, useRoomStore.getState().size)
@@ -80,7 +81,10 @@ function FurnitureInstances({ id, items, material }: { id: string; items: Item[]
         castShadow={shadows}
         receiveShadow={shadows}
         onPointerDown={onPointerDown}
-        onPointerOver={() => !useRoomStore.getState().drag && (document.body.style.cursor = 'grab')}
+        onPointerOver={() => {
+          const s = useRoomStore.getState()
+          if (s.editable && !s.drag) document.body.style.cursor = 'grab'
+        }}
         onPointerOut={() => !useRoomStore.getState().drag && (document.body.style.cursor = '')}
       />
       {previewMatrix && (

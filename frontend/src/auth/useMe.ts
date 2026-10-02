@@ -1,24 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
+import { api, ApiError } from '../api/http'
 import { useRoomStore } from '../store/roomStore'
 
 /** GET /api/me (docs/api.md). No email: public screens show the nickname only. */
-type Me = { nickname: string | null; needsSignup: boolean; mySlug: string; newGuestbookCount: number }
+export type Me = { nickname: string | null; needsSignup: boolean; mySlug: string; newGuestbookCount: number }
 export type MeState = { status: 'loading' } | ({ status: 'in' } & Me) | { status: 'out' } | { status: 'unavailable' }
 
+export const ME_KEY = ['me'] as const
+
 /**
- * 401 means logged out; anything else that fails (backend not running) hides the login area.
+ * 401 means logged out; anything else that fails (backend not running) is "unavailable".
  * 401 with code REPLACED: the account logged in elsewhere and this session was ended (one login per account).
  */
 async function fetchMe(): Promise<Me | null> {
-  const res = await fetch('/api/me', { credentials: 'same-origin' })
-  if (res.status === 401) {
-    const body = await res.json().catch(() => null)
-    if (body?.code === 'REPLACED') useRoomStore.getState().notify('다른 곳에서 로그인해서 여기서는 로그아웃됐어요', 'error')
+  try {
+    return await api<Me>('/api/me')
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 401) throw e
+    if (e.code === 'REPLACED') useRoomStore.getState().notify('다른 곳에서 로그인해서 여기서는 로그아웃됐어요', 'error')
     return null
   }
-  if (!res.ok) throw new Error(`/api/me ${res.status}`)
-  return res.json()
 }
 
 /** While logged in and visible, check every 30 s: a login elsewhere ends this tab within 30 s, not at the next click. */
@@ -26,7 +28,7 @@ const RECHECK_MS = 30_000
 
 export function useMe(): MeState {
   const q = useQuery({
-    queryKey: ['me'],
+    queryKey: ME_KEY,
     queryFn: fetchMe,
     retry: false,
     // Only while logged in; TanStack pauses the interval while the tab is hidden
@@ -53,20 +55,12 @@ export function useMe(): MeState {
   return q.data ? { status: 'in', ...q.data } : { status: 'out' }
 }
 
-function readCookie(name: string): string | undefined {
-  return document.cookie.split('; ').find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1)
-}
-
-/** Spring Security logout: POST with the XSRF-TOKEN cookie echoed in a header. */
+/** Spring Security logout: POST with the CSRF header. Everything cached about the user goes with it. */
 export function useLogout() {
   const client = useQueryClient()
   return async () => {
-    const token = readCookie('XSRF-TOKEN')
-    await fetch('/logout', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: token ? { 'X-XSRF-TOKEN': decodeURIComponent(token) } : {},
-    })
-    await client.invalidateQueries({ queryKey: ['me'] })
+    await api('/logout', { method: 'POST' }).catch(() => undefined)
+    client.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
+    await client.invalidateQueries({ queryKey: ME_KEY })
   }
 }

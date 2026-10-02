@@ -35,7 +35,9 @@
 
 MVP에서는 Redis, WebSocket, MongoDB, S3를 넣지 않는다. 필요해 보이면 추가하기 전에 먼저 제안한다.
 
-프론트 명령(`frontend/`에서): `npm run dev`(개발 서버, 같은 네트워크에서 접속 가능), `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run measure`(개발 서버를 띄운 상태에서 fps, 드로우콜, 로딩 시간 측정. 두 번째 인자로 주소 뒤에 붙일 값, 예: `npm run measure -- http://localhost:5173 stress=30`), `npm run fonts:subset`(`assets/fonts/` 원본과 Gaegu를 글자 범위별 조각으로 나눠 `public/fonts/`와 `src/styles/fonts.css`를 다시 만듦).
+개발 서버의 `/dev/room`은 1단계 꾸미기 놀이터(브라우저 저장, 측정 카드, `?grid=16`, `?stress=30`, `?shadows=1`)다. 개발 서버에서만 열린다. 실제 화면의 방 보기에서 측정 카드는 `?debug=1`.
+
+프론트 명령(`frontend/`에서): `npm run dev`(개발 서버, 같은 네트워크에서 접속 가능), `npm run build`, `npm run lint`, `npm run test:e2e`, `npm run measure`(개발 서버를 띄운 상태에서 `/dev/room` 놀이터의 fps, 드로우콜, 로딩 시간 측정. 두 번째 인자로 주소 뒤에 붙일 값, 예: `npm run measure -- http://localhost:5173 stress=30`), `node scripts/screens.mjs`(가짜 API로 주요 화면 스크린샷, `test-results/screens/`), `npm run fonts:subset`(`assets/fonts/` 원본과 Gaegu를 글자 범위별 조각으로 나눠 `public/fonts/`와 `src/styles/fonts.css`를 다시 만듦).
 
 백엔드 명령(저장소 루트에서): `docker compose up -d --build`(빌드, 테스트, 실행), `docker compose logs -f backend`, `docker compose down`(데이터는 볼륨 `pgdata`에 남음). 단위 테스트만: `docker build --target build backend`. 통합 테스트(실제 PostgreSQL의 `it` 스키마): `docker compose run --rm backend-test`. Git Bash에서 `/tmp` 같은 경로를 인자로 넘길 때는 `MSYS_NO_PATHCONV=1`을 앞에 붙인다(경로가 Windows 경로로 바뀜).
 

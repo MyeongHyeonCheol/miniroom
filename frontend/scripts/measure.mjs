@@ -1,4 +1,4 @@
-// Stage-1 measurement: open the room, wait, print GPU + perf stats, save screenshots.
+// Measurement: open the /dev/room playground, wait, print GPU + perf stats, save screenshots.
 // Usage: node scripts/measure.mjs [baseUrl] [extraQuery]   (dev server must be running)
 // extraQuery is appended to every case (e.g. `skin=a`) and to the screenshot name.
 import { chromium } from '@playwright/test'
@@ -19,7 +19,7 @@ page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 
 for (const [name, query] of [['default', ''], ['stress30', '?stress=30'], ['stress30-shadows', '?stress=30&shadows=1']]) {
-  const url = extra ? `${base}/${query ? `${query}&` : '?'}${extra}` : `${base}/${query}`
+  const url = extra ? `${base}/dev/room${query ? `${query}&` : '?'}${extra}` : `${base}/dev/room${query}`
   const shot = extra ? `${name}-${extra.replace(/[^a-z0-9]+/gi, '-')}` : name
   await page.goto(url, { waitUntil: 'load' })
   await page.waitForFunction(() => window.__miniroomStats?.furnitureReadyMs != null, null, { timeout: 30_000 })
