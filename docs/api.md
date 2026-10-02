@@ -3,7 +3,7 @@
 2단계 설계의 두 번째 문서다. `docs/screens.md`(화면 흐름)가 요구하는 데이터에서 나왔고, 개발 프로세스 문서의 "API 명세 초안" 표를 대신한다. 구현하면서 springdoc(Swagger, `/swagger-ui.html`)으로 옮기고, 이 문서와 Swagger가 다르면 Swagger에 맞춰 이 문서를 고친다.
 
 - 상태: 초안 (2026-10-01). 열린 질문은 추천안으로 결정. 방 크기는 방마다 다르다(기본 12×12, 최대 24×24). 배치 검증은 그 방의 크기로 한다.
-- 이미 구현된 것: 로그인, 로그아웃, 세션, 오류 형식, `GET /api/me`, `PATCH /api/me`, 첫 로그인 때 방 생성(2026-10-02). 표에 **구현됨**으로 적었다.
+- 이미 구현된 것: 로그인, 로그아웃, 세션, 오류 형식, `GET /api/me`, `PATCH /api/me`, 첫 로그인 때 방 생성, `GET /api/rooms/{slug}`, `PUT /api/rooms/me/layout`(2026-10-02). 표에 **구현됨**으로 적었다.
 
 ## 공통 규칙
 
@@ -51,8 +51,8 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | GET | `/api/me` | 예 | 내 정보 | 구현됨 |
 | PATCH | `/api/me` | 예 | 첫 가입(닉네임 + 14세 + 약관), 이후 닉네임 변경 | 구현됨 |
 | DELETE | `/api/me` | 예 | 탈퇴 | |
-| GET | `/api/rooms/{slug}` | 예(가입) | 방 보기 (로그인 필수(2026-10-01 사용자 결정)) | |
-| PUT | `/api/rooms/me/layout` | 예(가입) | 내 방 바닥, 벽지, 배치 저장 | |
+| GET | `/api/rooms/{slug}` | 예 | 방 보기. 로그인만 필요하고 가입 전에도 볼 수 있다(가입 창이 방 위에 뜨므로, 2026-10-02) | 구현됨 |
+| PUT | `/api/rooms/me/layout` | 예(가입) | 내 방 바닥, 벽지, 배치 저장 | 구현됨 |
 | POST | `/api/rooms/{slug}/visits` | 예(가입) | 방문 기록, 투데이/토탈 | |
 | GET | `/api/rooms/{slug}/guestbook` | 예(가입) | 방명록 목록 | |
 | POST | `/api/rooms/{slug}/guestbook` | 예(가입) | 방명록 쓰기 | |
@@ -138,7 +138,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
   - 바닥 가구, 러그: `{ id, x, y, r }`. `x`, `y`는 기준 칸(회전 후 차지하는 칸의 왼쪽 위), `r`은 0/90/180/270.
   - 벽 장식: `{ id, slot }`. 벽 한 면의 슬롯 수는 `size / 4`. 번호는 방을 넓혀도 바뀌지 않게 정한다: 크기 단계마다 새로 생긴 슬롯을 기존 번호 뒤에 붙인다. 12×12는 왼쪽 벽 0~2, 뒤쪽 벽 3~5. 16×16으로 넓히면 왼쪽 벽 6, 뒤쪽 벽 7. 20×20은 8, 9. 24×24는 10, 11. 벽 위 위치는 프론트가 번호에서 계산한다.
   - `backdrop`: 방 바깥 배경(바닥, 벽지처럼 방마다 하나). 없으면 기본 배경. 기본 하나는 무료, 나머지는 베타 도토리 상점 아이템(2026-10-01 사용자 결정). 종류는 배경 목록 JSON으로 관리하고 아직 정하지 않았다(앱 안 시안 비교 중).
-  - 가구 종류는 가구 목록 JSON의 `category`로 구분한다(`large`, `prop`, `rug`, `wall`). 백엔드는 프론트와 같은 JSON을 리소스로 둔다.
+  - 가구 종류는 가구 목록 JSON의 `category`로 구분한다(`large`, `prop`, `rug`, `wall`). 원본은 백엔드 `backend/src/main/resources/catalog/`(`furniture.json`, 바닥·벽지·배경은 `surfaces.json`)에 있고 프론트가 같은 파일을 읽는다(2026-10-02).
 - 없는 slug: `404 ROOM_NOT_FOUND`.
 - `isMine`: 로그인 사용자가 주인이면 `true`. 프론트가 `/api/me`와 맞춰 보지 않아도 된다.
 - `size`: 한 변의 칸 수(12, 16, 20, 24). `limits.pieces`: 그 크기의 가구 상한(45, 60, 90, 120).
@@ -161,7 +161,10 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 | 칸이 겹침(러그는 다른 가구와 겹쳐도 됨, 러그끼리는 안 됨) | `LAYOUT_OVERLAP` |
 | 벽 장식 `slot`이 그 방 크기에 없는 번호이거나 같은 슬롯에 둘 | `LAYOUT_BAD_SLOT` |
 
-`errors[].index`로 문제가 된 가구를 알려 준다(화면에서 그 가구를 표시).
+`errors[]`에 틀린 가구마다 `{ index, code, detail }`을 모두 담는다(화면에서 그 가구를 표시). 맨 위 `code`는 첫 번째 오류의 것이다. 바닥·벽지·버전처럼 배치 전체의 오류는 `errors` 없이 하나만 돌려준다.
+
+- 서버는 받은 값을 그대로 저장하지 않고, 검사한 값만으로 다시 만든 JSON을 저장한다(모르는 필드는 버림, `backdrop`이 없으면 `island`). 응답의 `layout`이 저장된 값이다.
+- 배치 검사는 `LayoutValidator`. 회전과 차지 칸 계산은 프론트 `placement.ts`와 같다(90/270이면 가로·세로가 바뀜, 기준 칸은 회전 후 왼쪽 위).
 
 ## 방문
 
@@ -255,7 +258,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
 
 1. 오류 형식(`ProblemDetail` + `code`)과 공통 예외 처리
 2. `PATCH /api/me` 첫 가입 + 첫 로그인 때 방 생성 + `GET /api/me` 새 모양(프론트 이메일 표시를 닉네임으로). 1~2번 구현됨(2026-10-02)
-3. `GET /api/rooms/{slug}`, `PUT /api/rooms/me/layout`(검증은 가구 목록 JSON을 백엔드 리소스로 공유)
+3. `GET /api/rooms/{slug}`, `PUT /api/rooms/me/layout`(검증은 가구 목록 JSON을 백엔드 리소스로 공유). 구현됨(2026-10-02)
 4. 방문, 방명록, 지표, 공유 링크(4주차)
 
 ## 열린 질문

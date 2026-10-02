@@ -1,22 +1,17 @@
 import * as THREE from 'three'
+// Shared with the backend's layout validation; the backend owns the file (docs/api.md PUT /api/rooms/me/layout)
+import surfacesJson from '../../../backend/src/main/resources/catalog/surfaces.json' with { type: 'json' }
 
 /**
  * Floor and wallpaper textures drawn on a canvas (no image files for the prototype).
  * Colors follow the furniture palette in assets/blender/common.py.
+ * The ids and names come from the shared surfaces.json; a new id there also needs a drawer below.
  */
 export type FloorId = 'wood' | 'check' | 'carpet'
 export type WallId = 'ivory' | 'skycheck' | 'strawberry'
 
-export const FLOORS: { value: FloorId; label: string }[] = [
-  { value: 'wood', label: '원목 마루' },
-  { value: 'check', label: '체크 장판' },
-  { value: 'carpet', label: '카펫' },
-]
-export const WALLS: { value: WallId; label: string }[] = [
-  { value: 'ivory', label: '아이보리' },
-  { value: 'skycheck', label: '하늘 체크' },
-  { value: 'strawberry', label: '딸기' },
-]
+export const FLOORS = surfacesJson.floors.map((f) => ({ value: f.id as FloorId, label: f.name }))
+export const WALLS = surfacesJson.walls.map((w) => ({ value: w.id as WallId, label: w.name }))
 
 const SIZE = 256
 

@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,6 +9,8 @@ export default defineConfig({
     // Reachable from other devices on the LAN (integrated-GPU laptop fps check)
     host: true,
     port: 5173,
+    // The furniture and surface lists live in the backend (shared with its layout validation)
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), '../backend/src/main/resources/catalog'] },
     // Backend (docker compose) behind the same origin: no CORS, session cookie just works.
     // xfwd sends X-Forwarded-Host so Spring builds the OAuth redirect URL with :5173.
     proxy: Object.fromEntries(

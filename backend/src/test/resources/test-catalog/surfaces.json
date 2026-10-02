@@ -1,0 +1,15 @@
+{
+  "floors": [
+    { "id": "wood", "name": "원목 마루" },
+    { "id": "check", "name": "체크 장판" },
+    { "id": "carpet", "name": "카펫" }
+  ],
+  "walls": [
+    { "id": "ivory", "name": "아이보리" },
+    { "id": "skycheck", "name": "하늘 체크" },
+    { "id": "strawberry", "name": "딸기" }
+  ],
+  "backdrops": [
+    { "id": "island", "name": "떠 있는 섬" }
+  ]
+}

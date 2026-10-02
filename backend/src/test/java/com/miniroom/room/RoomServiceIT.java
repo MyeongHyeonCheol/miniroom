@@ -20,6 +20,9 @@ class RoomServiceIT {
     RoomRepository repo;
 
     @Autowired
+    LayoutValidator validator;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -38,7 +41,7 @@ class RoomServiceIT {
     /** RoomService with the given slugs in order instead of random ones. Not a Spring bean, so callers open the transaction. */
     private RoomService withSlugs(String... slugs) {
         var queue = new ArrayDeque<>(List.of(slugs));
-        return new RoomService(repo, Clock.systemUTC(), queue::remove);
+        return new RoomService(repo, validator, Clock.systemUTC(), queue::remove);
     }
 
     @Test

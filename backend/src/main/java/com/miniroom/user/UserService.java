@@ -61,6 +61,28 @@ public class UserService {
         return new Me(user, rooms.ofOwner(user.getId()));
     }
 
+    /** The logged-in account, signed up or not. */
+    @Transactional(readOnly = true)
+    public User account(String googleSub) {
+        return find(googleSub);
+    }
+
+    /** For writes that need a finished signup (docs/api.md "예(가입)"). */
+    @Transactional(readOnly = true)
+    public User requireSignedUp(String googleSub) {
+        User user = find(googleSub);
+        if (!user.isSignedUp()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "SIGNUP_REQUIRED", "finish signup first");
+        }
+        return user;
+    }
+
+    /** The public name of a room owner; null until they sign up. */
+    @Transactional(readOnly = true)
+    public String nicknameOf(Long userId) {
+        return users.findById(userId).map(User::getNickname).orElse(null);
+    }
+
     /** A live session whose account row is gone (deleted account): treat as logged out. */
     private User find(String googleSub) {
         return users.findByGoogleSub(googleSub).orElseThrow(

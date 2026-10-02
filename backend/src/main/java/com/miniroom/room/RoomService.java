@@ -1,8 +1,10 @@
 package com.miniroom.room;
 
+import com.miniroom.common.ApiException;
 import java.time.Clock;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,16 +24,18 @@ public class RoomService {
     private static final int SLUG_ATTEMPTS = 5;
 
     private final RoomRepository rooms;
+    private final LayoutValidator validator;
     private final Clock clock;
     private final Supplier<String> slugs;
 
     @Autowired
-    public RoomService(RoomRepository rooms, Clock clock) {
-        this(rooms, clock, Slugs::next);
+    public RoomService(RoomRepository rooms, LayoutValidator validator, Clock clock) {
+        this(rooms, validator, clock, Slugs::next);
     }
 
-    RoomService(RoomRepository rooms, Clock clock, Supplier<String> slugs) {
+    RoomService(RoomRepository rooms, LayoutValidator validator, Clock clock, Supplier<String> slugs) {
         this.rooms = rooms;
+        this.validator = validator;
         this.clock = clock;
         this.slugs = slugs;
     }
@@ -53,5 +57,20 @@ public class RoomService {
     @Transactional(readOnly = true)
     public Room ofOwner(Long ownerId) {
         return rooms.findByOwnerId(ownerId).orElseThrow();
+    }
+
+    /** Slugs are the only public room id. A malformed one is just not found. */
+    @Transactional(readOnly = true)
+    public Room bySlug(String slug) {
+        return rooms.findBySlug(slug).orElseThrow(
+                () -> new ApiException(HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "no room " + slug));
+    }
+
+    /** Checks the whole layout against the room's own size, then replaces it. Nothing is saved on any error. */
+    @Transactional
+    public Room saveLayout(Long ownerId, String body) {
+        Room room = ofOwner(ownerId);
+        room.replaceLayout(validator.validate(body, room.getSize()), clock.instant());
+        return room;
     }
 }

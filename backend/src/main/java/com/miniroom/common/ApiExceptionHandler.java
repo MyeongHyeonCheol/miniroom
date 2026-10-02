@@ -11,7 +11,9 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail api(ApiException e) {
-        return Problems.of(e.status(), e.code(), e.getMessage());
+        var problem = Problems.of(e.status(), e.code(), e.getMessage());
+        if (!e.errors().isEmpty()) problem.setProperty("errors", e.errors());
+        return problem;
     }
 
     /** Not JSON, or a field of the wrong type */

@@ -11,6 +11,8 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     Optional<Room> findByOwnerId(Long ownerId);
 
+    Optional<Room> findBySlug(String slug);
+
     /**
      * 1 if the room was made, 0 if it wasn't: the owner already has one (also a concurrent first login) or the
      * slug is taken. No exception either way, so the surrounding login transaction stays usable for a retry.

@@ -1,4 +1,5 @@
-import catalogJson from './catalog.json' with { type: 'json' }
+// Shared with the backend's layout validation; the backend owns the file (docs/api.md PUT /api/rooms/me/layout)
+import catalogJson from '../../../backend/src/main/resources/catalog/furniture.json' with { type: 'json' }
 
 export type FurnitureDef = {
   id: string
