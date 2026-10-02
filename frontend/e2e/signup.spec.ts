@@ -125,3 +125,18 @@ test('under 14: the account is deleted and the user is back at the start', async
   await expect(page.getByRole('status')).toHaveText(/만 14세 미만은 가입할 수 없어서 계정을 지웠어요/)
   await expect(page.getByRole('link', { name: 'Google로 로그인' })).toBeVisible()
 })
+
+test('only one terms text is open at a time', async ({ page }) => {
+  await fakeApi(page)
+  await page.goto(`/r/${MY_SLUG}`)
+  const d = dialog(page)
+  const [termsToggle, privacyToggle] = [0, 1].map((i) => d.getByRole('button', { name: /내용 보기|접기/ }).nth(i))
+  await termsToggle.click()
+  await expect(d.getByLabel('이용약관 내용')).toBeVisible()
+  await privacyToggle.click()
+  await expect(d.getByLabel('개인정보처리방침 내용')).toBeVisible()
+  await expect(d.getByLabel('이용약관 내용')).toHaveCount(0)
+  await expect(termsToggle).toHaveAttribute('aria-expanded', 'false')
+  await privacyToggle.click()
+  await expect(d.getByLabel('개인정보처리방침 내용')).toHaveCount(0)
+})

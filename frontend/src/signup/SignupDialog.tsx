@@ -18,8 +18,15 @@ const ERRORS: Record<string, string> = {
   CONSENT_REQUIRED: '약관이 바뀌었어요. 내용을 다시 확인하고 동의해 주세요',
 }
 
-function TermsItem({ terms, checked, onChange }: { terms: Terms; checked: boolean; onChange: (v: boolean) => void }) {
-  const [open, setOpen] = useState(false)
+type TermsItemProps = {
+  terms: Terms
+  checked: boolean
+  onChange: (v: boolean) => void
+  open: boolean
+  onToggle: () => void
+}
+
+function TermsItem({ terms, checked, onChange, open, onToggle }: TermsItemProps) {
   const id = `terms-${terms.id}`
   return (
     <div>
@@ -28,7 +35,7 @@ function TermsItem({ terms, checked, onChange }: { terms: Terms; checked: boolea
         <label htmlFor={id} className="flex-1 cursor-pointer text-small">
           [필수] {terms.title}에 동의해요
         </label>
-        <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Button size="sm" variant="ghost" aria-expanded={open} onClick={onToggle}>
           {open ? '접기' : '내용 보기'}
         </Button>
       </div>
@@ -53,6 +60,8 @@ export function SignupDialog({ onLater }: { onLater: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [under14, setUnder14] = useState(false)
+  // One terms text open at a time, so the dialog never grows past the screen
+  const [openTerms, setOpenTerms] = useState<number | null>(null)
 
   const list = terms.data ?? []
   const allTerms = list.length > 0 && list.every((t) => agreed[t.id])
@@ -151,7 +160,14 @@ export function SignupDialog({ onLater }: { onLater: () => void }) {
           {terms.isPending && <p className="text-caption text-ink-soft">약관을 불러오는 중이에요</p>}
           {terms.isError && <p className="field-error">약관을 불러오지 못했어요. 새로고침해 주세요</p>}
           {list.map((t) => (
-            <TermsItem key={t.id} terms={t} checked={Boolean(agreed[t.id])} onChange={(v) => setAgreed({ ...agreed, [t.id]: v })} />
+            <TermsItem
+              key={t.id}
+              terms={t}
+              checked={Boolean(agreed[t.id])}
+              onChange={(v) => setAgreed({ ...agreed, [t.id]: v })}
+              open={openTerms === t.id}
+              onToggle={() => setOpenTerms(openTerms === t.id ? null : t.id)}
+            />
           ))}
         </div>
 
