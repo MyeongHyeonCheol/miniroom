@@ -1,5 +1,19 @@
 [
   { "id": "bed", "name": "싱글 침대", "category": "large", "size": [2, 4], "glb": "/models/bed.glb" },
   { "id": "computer_desk", "name": "컴퓨터 책상", "category": "large", "size": [3, 2], "glb": "/models/computer_desk.glb" },
-  { "id": "plant_pot", "name": "화분", "category": "prop", "size": [1, 1], "glb": "/models/plant_pot.glb" }
+  { "id": "sofa", "name": "2인 소파", "category": "large", "size": [3, 2], "glb": "/models/sofa.glb" },
+  { "id": "chair", "name": "의자", "category": "large", "size": [1, 1], "glb": "/models/chair.glb" },
+  { "id": "wardrobe", "name": "옷장", "category": "storage", "size": [2, 1], "glb": "/models/wardrobe.glb" },
+  { "id": "bookshelf", "name": "책장", "category": "storage", "size": [2, 1], "glb": "/models/bookshelf.glb" },
+  { "id": "nightstand", "name": "협탁", "category": "storage", "size": [1, 1], "glb": "/models/nightstand.glb" },
+  { "id": "crt_tv", "name": "브라운관 TV", "category": "appliance", "size": [2, 1], "glb": "/models/crt_tv.glb" },
+  { "id": "cd_player", "name": "CD 플레이어", "category": "appliance", "size": [1, 1], "glb": "/models/cd_player.glb" },
+  { "id": "floor_lamp", "name": "스탠드 조명", "category": "prop", "size": [1, 1], "glb": "/models/floor_lamp.glb" },
+  { "id": "plant_pot", "name": "화분", "category": "prop", "size": [1, 1], "glb": "/models/plant_pot.glb" },
+  { "id": "teddy_bear", "name": "곰인형", "category": "prop", "size": [1, 1], "glb": "/models/teddy_bear.glb" },
+  { "id": "fish_tank", "name": "어항", "category": "prop", "size": [1, 1], "glb": "/models/fish_tank.glb" },
+  { "id": "rug_round", "name": "원형 러그", "category": "rug", "size": [4, 4], "glb": "/models/rug_round.glb" },
+  { "id": "window", "name": "창문", "category": "wall", "size": [3, 1], "glb": "/models/window.glb" },
+  { "id": "picture_frame", "name": "액자", "category": "wall", "size": [2, 1], "glb": "/models/picture_frame.glb" },
+  { "id": "wall_clock", "name": "벽시계", "category": "wall", "size": [1, 1], "glb": "/models/wall_clock.glb" }
 ]

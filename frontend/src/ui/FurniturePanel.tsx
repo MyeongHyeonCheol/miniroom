@@ -1,4 +1,4 @@
-import { CATALOG } from '../furniture/catalog'
+import { FLOOR_CATALOG } from '../furniture/catalog'
 import { pieceLimit } from '../room/placement'
 import { useRoomStore } from '../store/roomStore'
 
@@ -20,7 +20,7 @@ export function FurniturePanel({ className = '' }: { className?: string }) {
         </p>
       )}
       <div className="grid grid-cols-[repeat(auto-fill,88px)] gap-3">
-        {CATALOG.map((f) => (
+        {FLOOR_CATALOG.map((f) => (
           <button key={f.id} type="button" className="tile" disabled={full} onClick={() => addFurniture(f.id)}>
             <span className="text-label">{f.name}</span>
             <span className="text-caption text-ink-soft">{f.size[0]}×{f.size[1]}칸</span>

@@ -12,6 +12,10 @@ export type FurnitureDef = {
 
 export const CATALOG = catalogJson as FurnitureDef[]
 export const CATALOG_BY_ID = new Map(CATALOG.map((f) => [f.id, f]))
+/** Wall decor hangs on wall slots (docs/api.md), not on floor cells; the editor shows slots in week 3. */
+export const isWallDecor = (id: string) => CATALOG_BY_ID.get(id)?.category === 'wall'
+/** What the floor furniture panel offers. */
+export const FLOOR_CATALOG = CATALOG.filter((f) => !isWallDecor(f.id))
 
 /** Size/category lookup for placement rules. */
 export const lookupFurniture = (id: string) => {

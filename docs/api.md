@@ -158,7 +158,7 @@ Spring의 `ProblemDetail`(RFC 9457)에 `code`를 더한다. 프론트는 `code`�
   - 바닥 가구, 러그: `{ id, x, y, r }`. `x`, `y`는 기준 칸(회전 후 차지하는 칸의 왼쪽 위), `r`은 0/90/180/270.
   - 벽 장식: `{ id, slot }`. 벽 한 면의 슬롯 수는 `size / 4`. 번호는 방을 넓혀도 바뀌지 않게 정한다: 크기 단계마다 새로 생긴 슬롯을 기존 번호 뒤에 붙인다. 12×12는 왼쪽 벽 0~2, 뒤쪽 벽 3~5. 16×16으로 넓히면 왼쪽 벽 6, 뒤쪽 벽 7. 20×20은 8, 9. 24×24는 10, 11. 벽 위 위치는 프론트가 번호에서 계산한다.
   - `backdrop`: 방 바깥 배경(바닥, 벽지처럼 방마다 하나). 없으면 기본 배경. 기본 하나는 무료, 나머지는 베타 도토리 상점 아이템(2026-10-01 사용자 결정). 종류는 배경 목록 JSON으로 관리하고 아직 정하지 않았다(앱 안 시안 비교 중).
-  - 가구 종류는 가구 목록 JSON의 `category`로 구분한다(`large`, `prop`, `rug`, `wall`). 원본은 백엔드 `backend/src/main/resources/catalog/`(`furniture.json`, 바닥·벽지·배경은 `surfaces.json`)에 있고 프론트가 같은 파일을 읽는다(2026-10-02).
+  - 가구 종류는 가구 목록 JSON의 `category`로 구분한다(`large`, `storage`, `appliance`, `prop`은 바닥 가구, `rug`는 다른 가구 밑에 깔 수 있음, `wall`은 벽 슬롯). PRD의 17종이 모두 있다(2026-10-02). 원본은 백엔드 `backend/src/main/resources/catalog/`(`furniture.json`, 바닥·벽지·배경은 `surfaces.json`)에 있고 프론트가 같은 파일을 읽는다(2026-10-02).
 - 없는 slug: `404 ROOM_NOT_FOUND`.
 - `isMine`: 로그인 사용자가 주인이면 `true`. 프론트가 `/api/me`와 맞춰 보지 않아도 된다.
 - `size`: 한 변의 칸 수(12, 16, 20, 24). `limits.pieces`: 그 크기의 가구 상한(45, 60, 90, 120).

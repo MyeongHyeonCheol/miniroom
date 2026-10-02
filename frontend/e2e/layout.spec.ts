@@ -48,14 +48,15 @@ test.describe('layout json', () => {
         { id: 'bed', x: 0, y: 0, r: 0 },
         { id: 'plant_pot', x: 1, y: 1, r: 0 }, // overlaps the bed
         { id: 'computer_desk', x: GRID - 2, y: 0, r: 0 }, // 3 wide, 2 cells from the right wall: outside
-        { id: 'sofa', x: 4, y: 4, r: 0 }, // not in the catalog
+        { id: 'spaceship', x: 4, y: 4, r: 0 }, // not in the catalog
+        { id: 'window', x: 8, y: 8, r: 0 }, // wall decor goes on wall slots, not floor cells
         { id: 'plant_pot', x: 4, y: 4, r: 45 }, // bad rotation
         { id: 'plant_pot', x: 4.5, y: 4, r: 0 }, // not a cell
         null,
         { id: 'plant_pot', x: GRID - 1, y: GRID - 1, r: 270 },
       ],
     })
-    expect(dropped).toBe(6)
+    expect(dropped).toBe(7)
     expect(layout.floor).toBe('wood')
     expect(layout.wall).toBe('skycheck')
     expect(layout.placements.map((p) => [p.furnitureId, p.x, p.y])).toEqual([['bed', 0, 0], ['plant_pot', GRID - 1, GRID - 1]])

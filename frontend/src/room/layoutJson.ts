@@ -1,4 +1,4 @@
-import { CATALOG_BY_ID, lookupFurniture } from '../furniture/catalog'
+import { CATALOG_BY_ID, isWallDecor, lookupFurniture } from '../furniture/catalog'
 import { canPlace, pieceLimit, type Placement, type RoomSide, type Rotation } from './placement'
 import { FLOORS, WALLS, type FloorId, type WallId } from './surfaces'
 
@@ -63,6 +63,7 @@ export function parseLayoutJson(
       placements.length < pieceLimit(side) &&
       typeof it.id === 'string' &&
       CATALOG_BY_ID.has(it.id) &&
+      !isWallDecor(it.id as string) && // slots are not drawn yet (week 3)
       isCell(it.x) &&
       isCell(it.y) &&
       ROTATIONS.includes(it.r as number)

@@ -6,6 +6,9 @@ Conventions
   "anchor cell + rotation" to this center point.
 - Footprint W x D cells lies along Blender X x Y. The front of the furniture
   faces -Y (glTF +Z); the back (headboard, wall side) is +Y.
+- Wall decor (category "wall"): origin at the bottom center of its back face, which
+  touches the wall; the piece sticks out toward -Y. The frontend hangs it on a wall
+  slot (docs/api.md), so only its own size matters, not floor cells.
 - Colors come from one shared palette texture (PALETTE_SIZE px, 8x8 swatches).
   Each face gets UVs at the center of its swatch, so every model uses a single
   material and one texture.
@@ -45,6 +48,10 @@ PALETTE = {
     "red": (17, "d9504a"),
     "yellow": (18, "f2cf5b"),
     "blue": (19, "4f7fc2"),
+    "tan": (20, "d8a874"),
+    "orange": (21, "ec8c4c"),
+    "sage": (22, "9fb48c"),
+    "navy": (23, "39486e"),
 }
 
 
@@ -279,3 +286,30 @@ def export_glb(obj, name):
         export_materials="EXPORT",
     )
     return path
+
+
+def cylinder(radius, depth, loc, color, sides=8, name="cylinder", radius_top=None):
+    """Upright low-poly cylinder (or cone/frustum with radius_top) centered at loc."""
+    if radius_top is None:
+        bpy.ops.mesh.primitive_cylinder_add(vertices=sides, radius=radius, depth=depth, location=loc)
+    else:
+        bpy.ops.mesh.primitive_cone_add(vertices=sides, radius1=radius, radius2=radius_top, depth=depth, location=loc)
+    ob = bpy.context.active_object
+    ob.name = name
+    paint(ob, color)
+    return ob
+
+
+def report(obj, name, path, w, d, wall=False):
+    """Print the numbers the AGENTS.md budget asks for, and warn when the model leaves its footprint."""
+    dims = tuple(round(x, 3) for x in obj.dimensions)
+    print(f"RESULT name={name} tris={triangle_count(obj)} dims={dims} glb={path} bytes={os.path.getsize(path)}")
+    co = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    lo = [min(c[k] for c in co) for k in range(3)]
+    hi = [max(c[k] for c in co) for k in range(3)]
+    print(f"BOUNDS x {lo[0]:.3f}..{hi[0]:.3f} y {lo[1]:.3f}..{hi[1]:.3f} z {lo[2]:.3f}..{hi[2]:.3f}")
+    if wall:
+        if hi[1] > 0.001 or lo[2] < -0.001 or hi[0] - lo[0] > w + 0.001:
+            print(f"WARNING wall decor must sit at y <= 0, z >= 0 and stay {w} m wide")
+    elif lo[0] < -w / 2 - 0.001 or hi[0] > w / 2 + 0.001 or lo[1] < -d / 2 - 0.001 or hi[1] > d / 2 + 0.001 or lo[2] < -0.001:
+        print(f"WARNING outside {w}x{d} m footprint")
