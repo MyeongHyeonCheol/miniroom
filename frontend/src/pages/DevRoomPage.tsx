@@ -1,15 +1,15 @@
 import { useEffect } from 'react'
 import { StatsCard } from '../debug/StatsCard'
+import { SurfacePicker } from '../edit/SurfacePicker'
+import { useEditShortcuts } from '../edit/useEditShortcuts'
 import { RoomScene } from '../room/RoomScene'
-import { FLOORS, WALLS } from '../room/surfaces'
 import { useLocation } from '../router'
 import { layoutJsonOf, useRoomStore } from '../store/roomStore'
 import { Button } from '../ui/Button'
 import { FurniturePanel } from '../ui/FurniturePanel'
-import { SegmentedControl } from '../ui/SegmentedControl'
 
 function Controls({ className = '' }: { className?: string }) {
-  const { floor, wall, shadows, setFloor, setWall, setShadows, save } = useRoomStore()
+  const { shadows, setShadows, saveToBrowser } = useRoomStore()
   const dirty = useRoomStore((s) => layoutJsonOf(s) !== s.savedJson)
   const { search } = useLocation()
   const stress = search.get('stress')
@@ -19,17 +19,10 @@ function Controls({ className = '' }: { className?: string }) {
         <h2 className="text-title">방 꾸미기</h2>
         <div className="flex items-center gap-2">
           {dirty && <span className="text-caption text-ink-soft">저장 안 됨</span>}
-          <Button variant="primary" size="sm" onClick={save}>저장</Button>
+          <Button variant="primary" size="sm" onClick={saveToBrowser}>저장</Button>
         </div>
       </div>
-      <div>
-        <span className="field-label text-small">바닥</span>
-        <SegmentedControl label="바닥" options={FLOORS} value={floor} onChange={setFloor} />
-      </div>
-      <div>
-        <span className="field-label text-small">벽지</span>
-        <SegmentedControl label="벽지" options={WALLS} value={wall} onChange={setWall} />
-      </div>
+      <SurfacePicker />
       <div className="flex gap-2">
         <Button size="sm" onClick={() => setShadows(!shadows)} aria-pressed={shadows}>
           그림자 {shadows ? '끄기' : '켜기'}
@@ -44,22 +37,6 @@ function Controls({ className = '' }: { className?: string }) {
   )
 }
 
-/** R rotate, Delete/Backspace remove, Esc deselect. Ignored while typing in a field. */
-function useKeyboardShortcuts() {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement
-      if (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return
-      const s = useRoomStore.getState()
-      if (e.key === 'r' || e.key === 'R') s.rotateSelected()
-      else if (e.key === 'Delete' || e.key === 'Backspace') s.removeSelected()
-      else if (e.key === 'Escape') s.select(null)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-}
-
 /**
  * `/dev/room` (development server only): the stage-1 playground. Editable, saved in this browser, with the
  * measurement card. `npm run measure` and the placement e2e tests use it; ?grid=16, ?stress=30, ?shadows=1.
@@ -68,7 +45,7 @@ function useKeyboardShortcuts() {
 export function DevRoomPage() {
   const { search } = useLocation()
   const query = search.toString()
-  useKeyboardShortcuts()
+  useEditShortcuts()
   useEffect(() => {
     useRoomStore.getState().loadPlayground(new URLSearchParams(query))
   }, [query])

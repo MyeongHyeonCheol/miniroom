@@ -29,23 +29,33 @@ export type Notice = { id: number; text: string; tone: 'info' | 'error' }
 type RoomState = {
   /** Cells per room side. Every placement rule reads it from here. */
   size: RoomSide
+  /** Most pieces this room may hold (wall decor included): the API's limits.pieces, or the table for the side. */
+  limit: number
   floor: FloorId
   wall: WallId
   shadows: boolean
   placements: Placement[]
-  /** Furniture can be picked up and moved. Off when looking at a room; the editor (week 3) turns it on. */
+  /** Furniture can be picked up and moved: the /dev/room playground, or my room in edit mode (?edit). */
   editable: boolean
   selected: number | null
   drag: DragState | null
+  /** Pieces the server refused at the last save (errors[].index), drawn in red until they are changed. */
+  invalid: number[]
   notice: Notice | null
   /** JSON of the last saved (or loaded) layout, to tell whether there are unsaved changes */
   savedJson: string | null
   /** The /dev/room playground: ?grid, ?stress, ?shadows and the browser-saved layout, editable. */
   loadPlayground: (search: URLSearchParams) => void
   /** A room from GET /api/rooms/{slug}, to look at. */
-  showRoom: (size: number, layout: unknown) => void
+  showRoom: (size: number, layout: unknown, limit?: number) => void
   /** The default first room, behind the logged-out home screen. */
   showSample: () => void
+  startEditing: () => void
+  /** Back to looking, throwing away unsaved changes (the last saved layout comes back). */
+  stopEditing: () => void
+  /** The current layout is now what the server has. */
+  markSaved: () => void
+  setInvalid: (indexes: number[]) => void
   setFloor: (floor: FloorId) => void
   setWall: (wall: WallId) => void
   setShadows: (on: boolean) => void
@@ -58,14 +68,19 @@ type RoomState = {
   removeSelected: () => void
   addFurniture: (furnitureId: string) => void
   notify: (text: string, tone?: Notice['tone']) => void
-  save: () => void
+  /** Playground only: keep the layout in this browser. */
+  saveToBrowser: () => void
 }
 
 const DEFAULT: Layout = { floor: 'wood', wall: 'ivory', placements: DEFAULT_LAYOUT }
+const EMPTY: Layout = { ...DEFAULT, placements: [] }
 
 /** Canonical JSON of the current layout (used for saving and for the unsaved-changes check). */
 export const layoutJsonOf = (s: Pick<RoomState, 'floor' | 'wall' | 'placements'>) =>
   JSON.stringify(toLayoutJson(s))
+
+/** Unsaved changes in the editor. */
+export const isDirty = (s: RoomState) => s.editable && s.savedJson !== null && layoutJsonOf(s) !== s.savedJson
 
 const MESSAGES = {
   overlap: '다른 가구와 겹쳐서 놓을 수 없어요',
@@ -79,7 +94,7 @@ const MESSAGES = {
 let noticeId = 0
 const notice = (text: string, tone: Notice['tone'] = 'info'): Notice => ({ id: ++noticeId, text, tone })
 
-/** Fresh view of a layout: nothing selected or held. */
+/** Fresh view of a layout: nothing selected, held or marked. */
 const view = (size: RoomSide, layout: Layout) => ({
   size,
   floor: layout.floor,
@@ -87,10 +102,18 @@ const view = (size: RoomSide, layout: Layout) => ({
   placements: layout.placements,
   selected: null,
   drag: null,
+  invalid: [],
 })
 
+/** A layout JSON (stored or saved) back into a layout for this room side; broken JSON shows an empty room. */
+function layoutOf(json: string, size: RoomSide): Layout {
+  const parsed = parseLayoutJson(json, EMPTY, size)
+  return 'error' in parsed ? EMPTY : parsed.layout
+}
+
 export const useRoomStore = create<RoomState>((set, get) => ({
-  ...view(SIGNUP_SIDE, { ...DEFAULT, placements: [] }),
+  ...view(SIGNUP_SIDE, EMPTY),
+  limit: pieceLimit(SIGNUP_SIDE),
   shadows: false,
   editable: false,
   notice: null,
@@ -99,32 +122,44 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   loadPlayground: (search) => {
     const grid = Number(search.get('grid'))
     const size: RoomSide = isRoomSide(grid) ? grid : SIGNUP_SIDE
+    const limit = pieceLimit(size)
     const shadows = search.get('shadows') === '1'
     const stress = Number(search.get('stress'))
     if (stress > 0) {
-      const placements = stressLayout(Math.min(stress, pieceLimit(size)), size)
-      return set({ ...view(size, { ...DEFAULT, placements }), shadows, editable: true, savedJson: null })
+      const placements = stressLayout(Math.min(stress, limit), size)
+      return set({ ...view(size, { ...DEFAULT, placements }), limit, shadows, editable: true, savedJson: null })
     }
     const loaded = loadLayout(DEFAULT, size)
     const layout = loaded?.layout ?? DEFAULT
-    set({ ...view(size, layout), shadows, editable: true, savedJson: loaded ? layoutJsonOf(layout) : null })
+    set({ ...view(size, layout), limit, shadows, editable: true, savedJson: loaded ? layoutJsonOf(layout) : null })
     if (loaded && loaded.dropped > 0) set({ notice: notice(MESSAGES.dropped(loaded.dropped), 'error') })
   },
 
-  showRoom: (rawSize, layout) => {
+  showRoom: (rawSize, layout, limit) => {
     const size: RoomSide = isRoomSide(rawSize) ? rawSize : SIGNUP_SIDE
     // The server checked this layout when it was saved; parsing again only guards the renderer
-    const parsed = parseLayoutJson(JSON.stringify(layout), { ...DEFAULT, placements: [] }, size)
-    const shown = 'error' in parsed ? { ...DEFAULT, placements: [] } : parsed.layout
-    set({ ...view(size, shown), editable: false, savedJson: layoutJsonOf(shown) })
+    const shown = layoutOf(JSON.stringify(layout), size)
+    set({ ...view(size, shown), limit: limit ?? pieceLimit(size), editable: false, savedJson: layoutJsonOf(shown) })
   },
 
-  showSample: () => set({ ...view(SIGNUP_SIDE, DEFAULT), editable: false, savedJson: null }),
+  showSample: () =>
+    set({ ...view(SIGNUP_SIDE, DEFAULT), limit: pieceLimit(SIGNUP_SIDE), editable: false, savedJson: null }),
+
+  startEditing: () => set({ editable: true, selected: null, drag: null, invalid: [] }),
+
+  stopEditing: () => {
+    const { savedJson, size } = get()
+    set({ ...view(size, savedJson ? layoutOf(savedJson, size) : EMPTY), editable: false })
+  },
+
+  markSaved: () => set({ savedJson: layoutJsonOf(get()), invalid: [] }),
+
+  setInvalid: (invalid) => set({ invalid, selected: null }),
 
   setFloor: (floor) => set({ floor }),
   setWall: (wall) => set({ wall }),
   setShadows: (shadows) => set({ shadows }),
-  setPlacements: (placements) => set({ placements, selected: null, drag: null }),
+  setPlacements: (placements) => set({ placements, selected: null, drag: null, invalid: [] }),
 
   select: (selected) => set({ selected }),
 
@@ -146,7 +181,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   endDrag: () => {
-    const { drag, placements, size, notify } = get()
+    const { drag, placements, size, invalid, notify } = get()
     if (!drag) return
     const from = placements[drag.index]
     if (from.x === drag.preview.x && from.y === drag.preview.y) return set({ drag: null }) // a click, not a move
@@ -154,7 +189,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     if (check.ok) {
       const next = placements.slice()
       next[drag.index] = drag.preview
-      set({ placements: next, drag: null })
+      set({ placements: next, drag: null, invalid: invalid.filter((i) => i !== drag.index) })
     } else {
       set({ drag: null }) // snap back to the original cell
       notify(MESSAGES[check.reason], 'error')
@@ -162,7 +197,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   rotateSelected: () => {
-    const { selected, placements, drag, size, notify } = get()
+    const { selected, placements, drag, size, invalid, notify } = get()
     if (selected === null || drag) return
     const p = placements[selected]
     const rotated = { ...p, rotation: ((p.rotation + 90) % 360) as Rotation }
@@ -170,18 +205,18 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     if (!check.ok) return notify(MESSAGES[check.reason], 'error')
     const next = placements.slice()
     next[selected] = rotated
-    set({ placements: next })
+    set({ placements: next, invalid: invalid.filter((i) => i !== selected) })
   },
 
   removeSelected: () => {
     const { selected, placements, drag } = get()
     if (selected === null || drag) return
-    set({ placements: placements.filter((_, i) => i !== selected), selected: null, drag: null })
+    // Indexes shift after a removal, so the server's marks no longer line up: clear them
+    set({ placements: placements.filter((_, i) => i !== selected), selected: null, drag: null, invalid: [] })
   },
 
   addFurniture: (furnitureId) => {
-    const { placements, size, notify } = get()
-    const limit = pieceLimit(size)
+    const { placements, size, limit, notify } = get()
     if (placements.length >= limit) return notify(MESSAGES.full(limit), 'error')
     const spot = findFreeSpot(placements, furnitureId, lookupFurniture, size)
     if (!spot) return notify(MESSAGES.noSpace, 'error')
@@ -190,7 +225,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
   notify: (text, tone = 'info') => set({ notice: { id: ++noticeId, text, tone } }),
 
-  save: () => {
+  saveToBrowser: () => {
     const { floor, wall, placements, notify } = get()
     const bytes = saveLayout({ floor, wall, placements })
     if (bytes === null) return notify(MESSAGES.saveFailed, 'error')

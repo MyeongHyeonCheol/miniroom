@@ -1,13 +1,14 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { ApiError } from '../api/http'
 import { useInvite, useRoom } from '../api/queries'
 import { AuthBadge, LoginButton } from '../auth/AuthBadge'
 import { useMe } from '../auth/useMe'
 import { StatsCard } from '../debug/StatsCard'
+import { EditPanel, LeaveDialog } from '../edit/EditPanel'
 import { RoomScene } from '../room/RoomScene'
 import { navigate, roomPath, useLocation } from '../router'
 import { SignupDialog } from '../signup/SignupDialog'
-import { useRoomStore } from '../store/roomStore'
+import { isDirty, useRoomStore } from '../store/roomStore'
 import { Button } from '../ui/Button'
 
 /** A card in the middle of the sky, for screens without a room behind them. */
@@ -50,16 +51,49 @@ function RoomNotFound({ mySlug }: { mySlug?: string }) {
   )
 }
 
-/** Logged in: the room as saved, the owner's nickname, and the signup form over it until signup is done. */
+/**
+ * Logged in: the room as saved, the owner's nickname, and the signup form over it until signup is done.
+ * My room with `?edit` (and signup done) is the editor (docs/screens.md "4. 꾸미기 모드").
+ */
 function RoomView({ slug, mySlug, needsSignup }: { slug: string; mySlug: string; needsSignup: boolean }) {
   const room = useRoom(slug, true)
   const { search } = useLocation()
   const [signupLater, setSignupLater] = useState(false)
+  const [askLeave, setAskLeave] = useState(false)
+  const isMine = room.data?.isMine ?? false
+  const wantsEdit = search.has('edit')
+  const editing = wantsEdit && isMine && !needsSignup
+  const viewPath = roomPath(slug)
+  const editPath = `${viewPath}?edit`
 
-  // Before the first paint of the scene, so the previous room never flashes
+  const dirty = useRoomStore(isDirty)
+  // Left edit mode with the back button while there are unsaved changes: the edits stay until the user decides
+  const showLeave = askLeave || (!editing && dirty)
+
+  // Before the first paint of the scene, so the previous room never flashes. Unsaved edits are never wiped (by a
+  // refetch or by leaving edit mode); after a save the new data is the same layout, so the editor carries on.
   useLayoutEffect(() => {
-    if (room.data) useRoomStore.getState().showRoom(room.data.size, room.data.layout)
-  }, [room.data])
+    if (!room.data) return
+    const s = useRoomStore.getState()
+    if (isDirty(s)) return
+    s.showRoom(room.data.size, room.data.layout, room.data.limits.pieces)
+    if (editing) s.startEditing()
+  }, [room.data, editing])
+
+  // ?edit on someone else's room, or before signup: just look
+  useEffect(() => {
+    if (wantsEdit && room.data && !editing) navigate(viewPath, { replace: true })
+  }, [wantsEdit, editing, room.data, viewPath])
+
+  const leave = () => {
+    setAskLeave(false)
+    useRoomStore.getState().stopEditing()
+    navigate(viewPath)
+  }
+  const stay = () => {
+    setAskLeave(false)
+    navigate(editPath)
+  }
 
   if (room.error instanceof ApiError && room.error.status === 404) return <RoomNotFound mySlug={mySlug} />
   if (room.isError) {
@@ -80,13 +114,18 @@ function RoomView({ slug, mySlug, needsSignup }: { slug: string; mySlug: string;
       <RoomScene />
       <header className="pointer-events-none absolute top-6 left-6">
         <h1 className="text-title">{owner ? `${owner}님의 미니룸` : room.data.isMine ? '내 미니룸' : '미니룸'}</h1>
-        {!room.data.isMine && (
-          <Button className="pointer-events-auto mt-3" size="sm" onClick={() => navigate(roomPath(mySlug))}>
-            내 방 가보기
-          </Button>
-        )}
+        <div className="pointer-events-auto mt-3 flex gap-2">
+          {!room.data.isMine && (
+            <Button size="sm" onClick={() => navigate(roomPath(mySlug))}>내 방 가보기</Button>
+          )}
+          {room.data.isMine && !needsSignup && !editing && (
+            <Button size="sm" variant="primary" onClick={() => navigate(editPath)}>꾸미기</Button>
+          )}
+        </div>
       </header>
-      {search.get('debug') === '1' && <StatsCard className="absolute right-6 bottom-6 w-60" />}
+      {editing && <EditPanel slug={slug} onLeave={() => (dirty ? setAskLeave(true) : leave())} />}
+      {showLeave && <LeaveDialog onStay={stay} onLeave={leave} />}
+      {search.get('debug') === '1' && <StatsCard className="absolute top-6 right-6 mt-14 w-60" />}
       {needsSignup && !signupLater && <SignupDialog onLater={() => setSignupLater(true)} />}
     </>
   )

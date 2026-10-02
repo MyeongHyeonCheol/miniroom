@@ -27,6 +27,9 @@ async function shot(name, me, path, after = async () => {}) {
   await page.route('**/api/terms', (r) => r.fulfill({ json: TERMS }))
   await page.route(`**/api/rooms/${SLUG}/invite`, (r) => r.fulfill({ json: { nickname: '친구' } }))
   await page.route(`**/api/rooms/${SLUG}`, (r) => r.fulfill({ json: room(me?.nickname ?? null) }))
+  await page.route('**/api/rooms/me/layout', (r) =>
+    r.fulfill({ status: 422, json: { status: 422, code: 'LAYOUT_OVERLAP', errors: [{ index: 2, code: 'LAYOUT_OVERLAP' }] } }),
+  )
   await page.goto(base + path)
   await page.waitForTimeout(2500)
   await after(page)
@@ -45,4 +48,11 @@ await shot('signup-terms-open', NEW_ME, '/', async (page) => {
   await page.getByRole('button', { name: '내용 보기' }).first().click()
 })
 await shot('room-signed-up', { ...NEW_ME, nickname: '명현', needsSignup: false }, '/')
+const SIGNED = { ...NEW_ME, nickname: '명현', needsSignup: false }
+await shot('edit', SIGNED, `/r/${SLUG}?edit`)
+await shot('edit-refused', SIGNED, `/r/${SLUG}?edit`, async (page) => {
+  await page.evaluate(() => window.__miniroomRoom().setFloor('carpet'))
+  await page.getByRole('button', { name: '저장', exact: true }).click()
+  await page.waitForTimeout(500)
+})
 await browser.close()

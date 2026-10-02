@@ -35,6 +35,17 @@ function DropCells({ preview, valid }: { preview: Placement; valid: boolean }) {
   )
 }
 
+/** Pieces the server refused at the last save: their cells in red until they are moved or turned. */
+function InvalidCells() {
+  const invalid = useRoomStore((s) => s.invalid)
+  const placements = useRoomStore((s) => s.placements)
+  return (
+    <>
+      {invalid.map((i) => placements[i] && <DropCells key={i} preview={placements[i]} valid={false} />)}
+    </>
+  )
+}
+
 /** Outline of the selected piece's cells, and rotate / delete buttons above the model. */
 function Selection({ placement }: { placement: Placement }) {
   const { height } = useFurnitureMesh(placement.furnitureId)
@@ -114,6 +125,7 @@ export function PlacementOverlay() {
   return (
     <>
       <DragController />
+      <InvalidCells />
       {drag && <DropCells preview={drag.preview} valid={drag.valid} />}
       {!drag && selected && (
         <Suspense fallback={null}>

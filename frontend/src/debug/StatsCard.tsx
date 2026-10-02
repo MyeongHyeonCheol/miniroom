@@ -1,4 +1,3 @@
-import { pieceLimit } from '../room/placement'
 import { layoutJsonOf, useRoomStore } from '../store/roomStore'
 import { usePerfStore } from './perf'
 
@@ -8,7 +7,7 @@ const fmt = (ms: number | null) => (ms === null ? '…' : `${(ms / 1000).toFixed
 export function StatsCard({ className = '' }: { className?: string }) {
   const s = usePerfStore()
   const pieces = useRoomStore((r) => r.placements.length)
-  const limit = useRoomStore((r) => pieceLimit(r.size))
+  const limit = useRoomStore((r) => r.limit)
   const jsonBytes = useRoomStore((r) => new Blob([layoutJsonOf(r)]).size)
   const rows: [string, string, string?][] = [
     ['가구', `${pieces}개`, `한도 ${limit}`],

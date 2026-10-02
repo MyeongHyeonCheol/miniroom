@@ -1,11 +1,10 @@
 import { FLOOR_CATALOG } from '../furniture/catalog'
-import { pieceLimit } from '../room/placement'
 import { useRoomStore } from '../store/roomStore'
 
 /** Furniture list: a tile adds that piece at the first free spot. Spec: docs/design.md "가구 타일". */
 export function FurniturePanel({ className = '' }: { className?: string }) {
   const count = useRoomStore((s) => s.placements.length)
-  const limit = useRoomStore((s) => pieceLimit(s.size))
+  const limit = useRoomStore((s) => s.limit)
   const addFurniture = useRoomStore((s) => s.addFurniture)
   const full = count >= limit
   return (
